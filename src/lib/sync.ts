@@ -1,0 +1,141 @@
+import { sql } from "./db";
+import { parseJobFeedJson, parseJobFeedXml, type ParsedJob } from "./feedParser";
+import { scrapeListingHtml, crawlListingPages, SCRAPER_USER_AGENT } from "./htmlScraper";
+import { normalizeCityName } from "./cityName";
+import type { JobSource } from "./types";
+
+export type SyncResult =
+  | { success: true; count: number; mode: "json" | "xml" | "html"; warnings: string[] }
+  | { success: false; error: string };
+
+/** Executa Promise.all em lotes pequenos, pra não abrir dezenas de conexões de uma vez. */
+async function inBatches<T>(items: T[], size: number, fn: (item: T) => Promise<void>) {
+  for (let i = 0; i < items.length; i += size) {
+    const batch = items.slice(i, i + size);
+    await Promise.all(batch.map(fn));
+  }
+}
+
+/**
+ * Busca a URL cadastrada da fonte e sincroniza as vagas.
+ *
+ * A URL pode ser:
+ *  - um feed estruturado "de verdade" (JSON ou XML — ver src/lib/feedParser.ts),
+ *    o caso ideal quando a fonte expõe uma API pública de vagas; ou
+ *  - a própria página pública de busca/listagem de vagas do site, que a
+ *    gente varre via HTML (ver src/lib/htmlScraper.ts), pro caso mais comum
+ *    de não ter esse feed disponível.
+ *
+ * O formato é detectado automaticamente pelo `content-type` e pelo início do
+ * corpo da resposta: tentamos JSON primeiro (mais comum em plataformas de
+ * vaga modernas), depois XML, e por fim tratamos como HTML.
+ */
+export async function syncSource(sourceId: string): Promise<SyncResult> {
+  const rows = (await sql`select * from sources where id = ${sourceId}`) as JobSource[];
+  const source = rows[0];
+  if (!source) {
+    return { success: false, error: "Fonte não encontrada." };
+  }
+
+  try {
+    const res = await fetch(source.source_url, {
+      headers: { "User-Agent": SCRAPER_USER_AGENT, Accept: "application/json, application/xml, text/html" },
+      signal: AbortSignal.timeout(20_000),
+      cache: "no-store", // o fetch do Next.js faz cache/dedup por padrão; sync sempre quer dado fresco
+    });
+    if (!res.ok) {
+      throw new Error(`URL retornou HTTP ${res.status}`);
+    }
+    const contentType = res.headers.get("content-type") ?? "";
+    const body = await res.text();
+    const trimmed = body.trimStart();
+
+    let jobs: ParsedJob[];
+    let warnings: string[] = [];
+    let mode: "json" | "xml" | "html";
+
+    const looksJson = contentType.includes("json") || trimmed.startsWith("{") || trimmed.startsWith("[");
+    const looksXml = !looksJson && (contentType.includes("xml") || /^<\?xml/i.test(trimmed));
+
+    if (looksJson) {
+      const parsed = parseJobFeedJson(body);
+      jobs = parsed.jobs;
+      warnings = parsed.warnings;
+      mode = "json";
+    } else if (looksXml) {
+      const parsed = parseJobFeedXml(body);
+      jobs = parsed.jobs;
+      warnings = parsed.warnings;
+      mode = "xml";
+    } else {
+      const seedPage = scrapeListingHtml(body, source.source_url, source.city);
+      const crawl = await crawlListingPages(source.source_url, source.city, seedPage);
+      jobs = crawl.jobs;
+      warnings = crawl.warnings;
+      mode = "html";
+    }
+
+    if (jobs.length === 0) {
+      throw new Error(
+        mode === "html"
+          ? "A página foi lida, mas não conseguimos reconhecer nenhum card de vaga nela."
+          : `A URL foi lida como ${mode.toUpperCase()}, mas nenhuma vaga válida foi encontrada nela.`
+      );
+    }
+
+    await inBatches(jobs, 8, async (j) => {
+      await sql`
+        insert into jobs (
+          source_id, external_id, title, description, company, work_type, seniority,
+          contract_type, category, city, state, salary_min, salary_max, source_url, updated_at
+        ) values (
+          ${sourceId}, ${j.externalId}, ${j.title}, ${j.description}, ${j.company}, ${j.workType}, ${j.seniority},
+          ${j.contractType}, ${j.category}, ${normalizeCityName(j.city)}, ${j.state}, ${j.salaryMin}, ${j.salaryMax}, ${j.sourceUrl}, now()
+        )
+        on conflict (source_id, external_id) do update set
+          title = excluded.title,
+          description = excluded.description,
+          company = excluded.company,
+          work_type = excluded.work_type,
+          seniority = excluded.seniority,
+          contract_type = excluded.contract_type,
+          category = excluded.category,
+          city = excluded.city,
+          state = excluded.state,
+          salary_min = excluded.salary_min,
+          salary_max = excluded.salary_max,
+          source_url = excluded.source_url,
+          updated_at = now()
+      `;
+    });
+
+    // Remove do nosso banco vagas que não vieram mais na fonte (preenchidas/expiradas).
+    const currentIds = jobs.map((j) => j.externalId);
+    await sql`
+      delete from jobs
+      where source_id = ${sourceId}
+        and not (external_id = any(${currentIds}))
+    `;
+
+    const countRows = (await sql`select count(*)::int as count from jobs where source_id = ${sourceId}`) as {
+      count: number;
+    }[];
+    const count = countRows[0]?.count ?? jobs.length;
+
+    await sql`
+      update sources
+      set last_synced_at = now(), last_sync_status = 'success', last_sync_error = null, jobs_count = ${count}
+      where id = ${sourceId}
+    `;
+
+    return { success: true, count, mode, warnings };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Erro desconhecido ao sincronizar.";
+    await sql`
+      update sources
+      set last_synced_at = now(), last_sync_status = 'error', last_sync_error = ${message}
+      where id = ${sourceId}
+    `;
+    return { success: false, error: message };
+  }
+}
