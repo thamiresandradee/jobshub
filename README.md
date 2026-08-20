@@ -39,8 +39,9 @@ que também aparece como opção no filtro de cidade.
 
 A sincronização roda:
 
-- **Automaticamente**, 2x por dia, via Vercel Cron (`/api/cron/sync`, ver `vercel.json`) — vagas
-  costumam sair do ar mais rápido que imóveis, por isso o intervalo é menor que 1x/dia.
+- **Automaticamente**, 1x por dia, via Vercel Cron (`/api/cron/sync`, ver `vercel.json`) — o plano
+  Hobby da Vercel permite só 1 execução de cron por dia; num plano Pro vale considerar rodar mais
+  vezes, já que vaga costuma sair do ar mais rápido que imóvel.
 - **Sob demanda**, pelo botão "Sincronizar agora" na página `/fontes`.
 - **Ao cadastrar** uma fonte nova (sync imediato).
 
