@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, Search } from "lucide-react";
+import { ChevronDown, FilterX, Search } from "lucide-react";
 import type { JobFilters } from "@/lib/types";
 import { parseBRNumber } from "@/lib/brNumber";
 
@@ -153,8 +153,9 @@ export function FiltersBar({
               maxSalary: undefined,
             })
           }
-          className="text-sm font-medium text-slate-500 hover:text-slate-800"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
         >
+          <FilterX size={14} />
           Limpar filtros
         </button>
 
