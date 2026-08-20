@@ -27,7 +27,7 @@ export function FiltersBar({
           maior por ser o segundo filtro mais usado. O resto vai numa
           segunda linha, sempre (em todos os tamanhos de tela). */}
       <div className="w-full">
-        <Field label="Buscar por cargo" labelClassName="text-sm font-semibold text-slate-700">
+        <Field label="Buscar por cargo">
           <div className="relative">
             <Search size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
@@ -228,7 +228,7 @@ function MultiSelect({
   const buttonLabel = selected.length === 0 ? emptyText : selected.length === 1 ? selected[0] : `${selected.length} ${countNoun}`;
 
   return (
-    <Field label={label} labelClassName="text-sm font-semibold text-slate-700">
+    <Field label={label}>
       <div ref={containerRef} className="relative w-full">
         <button
           type="button"
