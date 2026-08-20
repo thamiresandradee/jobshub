@@ -306,8 +306,17 @@ export default function FontesPage() {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <Input label="Nome da fonte" required value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} placeholder="Adzuna - Campinas" />
               <Input label="Cidade (where)" required value={form.city} onChange={(v) => setForm((f) => ({ ...f, city: v }))} placeholder="Campinas" />
-              <Input label="O que buscar (what)" value={adzunaWhat} onChange={setAdzunaWhat} placeholder="desenvolvedor" />
+              <Input
+                label="O que buscar (what)"
+                value={adzunaWhat}
+                onChange={setAdzunaWhat}
+                placeholder="desenvolvedor designer analista de dados"
+              />
             </div>
+            <p className="text-xs text-slate-400">
+              Pra mais de uma opção, separe por espaço — a busca traz vaga de qualquer um dos termos (não precisa bater com
+              todos). Deixe em branco pra trazer todas as vagas da cidade, sem filtrar por cargo.
+            </p>
           </div>
         )}
 

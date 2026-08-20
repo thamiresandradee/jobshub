@@ -9,9 +9,13 @@ import { WORK_TYPE_KEYWORDS, SENIORITY_KEYWORDS, matchFirst } from "../jobKeywor
  * expostos na resposta da nossa própria API nem salvos em `source_url`
  * (ver connector_config em src/lib/types.ts).
  *
- * Cada fonte com esse conector representa uma busca salva: `what` (termo)
+ * Cada fonte com esse conector representa uma busca salva: o termo buscado
  * fica em `connector_config`, `where` (localização) reaproveita a coluna
- * `city` da fonte.
+ * `city` da fonte. Usamos o parâmetro `what_or` da Adzuna (não `what`): ele
+ * casa QUALQUER uma das palavras informadas, em vez de exigir todas — assim
+ * dá pra cobrir vários cargos numa fonte só (ex.: "desenvolvedor designer
+ * analista de dados" traz vaga de qualquer um dos três), confirmado testando
+ * contra a API real.
  */
 
 type AdzunaResult = {
@@ -63,7 +67,7 @@ export async function fetchAdzunaJobs(what: string, where: string): Promise<{ jo
   url.searchParams.set("app_key", appKey);
   url.searchParams.set("results_per_page", "50");
   url.searchParams.set("content-type", "application/json");
-  if (what) url.searchParams.set("what", what);
+  if (what) url.searchParams.set("what_or", what);
   if (where) url.searchParams.set("where", where);
 
   const res = await fetch(url.toString(), { signal: AbortSignal.timeout(20_000), cache: "no-store" });

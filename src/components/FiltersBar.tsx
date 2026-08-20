@@ -28,7 +28,7 @@ export function FiltersBar({
         <CityMultiSelect cities={meta.cities} selected={filters.city ?? []} onChange={(v) => onChange({ city: v.length ? v : undefined })} />
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Select label="Modalidade" value={filters.workType ?? ""} onChange={(v) => onChange({ workType: v || undefined })}>
           <option value="">Todas</option>
           <option value="remoto">Remoto</option>
@@ -53,18 +53,25 @@ export function FiltersBar({
           <option value="freelancer">Freelancer</option>
           <option value="temporario">Temporário</option>
         </Select>
+      </div>
 
-        <Select label="Área" value={filters.category ?? ""} onChange={(v) => onChange({ category: v || undefined })}>
-          <option value="">Todas</option>
-          {meta.categories.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </Select>
-
-        <PriceInput label="Salário mín." value={filters.minSalary} onChange={(v) => onChange({ minSalary: v })} />
-        <PriceInput label="Salário máx." value={filters.maxSalary} onChange={(v) => onChange({ maxSalary: v })} />
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-12">
+        <div className="sm:col-span-6">
+          <Select label="Área" value={filters.category ?? ""} onChange={(v) => onChange({ category: v || undefined })}>
+            <option value="">Todas</option>
+            {meta.categories.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div className="sm:col-span-3">
+          <PriceInput label="Salário mín." value={filters.minSalary} onChange={(v) => onChange({ minSalary: v })} />
+        </div>
+        <div className="sm:col-span-3">
+          <PriceInput label="Salário máx." value={filters.maxSalary} onChange={(v) => onChange({ maxSalary: v })} />
+        </div>
       </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
