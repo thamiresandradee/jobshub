@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import { syncSource } from "@/lib/sync";
 import { isAdminRequest } from "@/lib/adminAuth";
+import { KNOWN_CONNECTORS, resolveConnectorFields } from "@/lib/sourceConnector";
 import type { JobSource } from "@/lib/types";
 
 export const maxDuration = 120;
@@ -15,8 +16,6 @@ export async function GET(req: NextRequest) {
   `) as JobSource[];
   return NextResponse.json(sources);
 }
-
-const KNOWN_CONNECTORS = new Set(["remotive", "greenhouse", "lever", "adzuna"]);
 
 export async function POST(req: NextRequest) {
   if (!isAdminRequest(req)) {
@@ -34,35 +33,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Informe nome e cidade." }, { status: 400 });
   }
 
-  // Fontes com conector embutido não usam uma URL arbitrária pra buscar
-  // dados (ver src/lib/connectors/) — derivamos uma URL só de exibição, e
-  // exigimos o connector_config que cada integração precisa pra funcionar.
-  let sourceUrl: string;
-  if (connector === "remotive") {
-    sourceUrl = "https://remotive.com/remote-jobs";
-  } else if (connector === "greenhouse") {
-    if (!connectorConfig) return NextResponse.json({ error: "Informe o slug da empresa na Greenhouse." }, { status: 400 });
-    sourceUrl = `https://boards.greenhouse.io/${connectorConfig}`;
-  } else if (connector === "lever") {
-    if (!connectorConfig) return NextResponse.json({ error: "Informe o slug da empresa na Lever." }, { status: 400 });
-    sourceUrl = `https://jobs.lever.co/${connectorConfig}`;
-  } else if (connector === "adzuna") {
-    sourceUrl = "https://www.adzuna.com.br/";
-  } else {
-    sourceUrl = typeof body?.source_url === "string" ? body.source_url.trim() : "";
-    if (!sourceUrl) {
-      return NextResponse.json({ error: "Informe a URL de origem das vagas (feed ou página de listagem)." }, { status: 400 });
-    }
-    try {
-      new URL(sourceUrl);
-    } catch {
-      return NextResponse.json({ error: "A URL de origem é inválida." }, { status: 400 });
-    }
+  const resolved = resolveConnectorFields({ connector, connectorConfig, genericSourceUrl: typeof body?.source_url === "string" ? body.source_url.trim() : "" });
+  if (!resolved.ok) {
+    return NextResponse.json({ error: resolved.error }, { status: 400 });
   }
 
   const rows = (await sql`
     insert into sources (name, city, source_url, site_url, connector, connector_config)
-    values (${name}, ${city}, ${sourceUrl}, ${siteUrl}, ${connector}, ${connector ? connectorConfig || null : null})
+    values (${name}, ${city}, ${resolved.sourceUrl}, ${siteUrl}, ${resolved.connector}, ${resolved.connectorConfig})
     returning *
   `) as JobSource[];
   const source = rows[0];

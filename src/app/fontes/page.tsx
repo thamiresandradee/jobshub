@@ -106,7 +106,6 @@ export default function FontesPage() {
 
   function startEdit(source: JobSource) {
     setEditingId(source.id);
-    setSourceType("generic");
     resetSourceTypeFields();
     setForm({
       name: source.name,
@@ -114,12 +113,39 @@ export default function FontesPage() {
       source_url: source.source_url,
       site_url: source.site_url ?? "",
     });
+    if (source.connector === "adzuna") {
+      setSourceType("adzuna");
+      setAdzunaWhat(source.connector_config ?? "");
+    } else if (source.connector === "greenhouse" || source.connector === "lever") {
+      setSourceType("ats");
+      setSelectedMatch({ connector: source.connector, slug: source.connector_config ?? "", count: 0, sampleTitles: [] });
+    } else if (source.connector === "remotive") {
+      setSourceType("remotive");
+    } else {
+      setSourceType("generic");
+    }
     setMessage(null);
   }
 
   function cancelEdit() {
     setEditingId(null);
     setForm(emptyForm);
+    setSourceType("generic");
+    resetSourceTypeFields();
+  }
+
+  function buildPayload(): Record<string, string> | null {
+    if (sourceType === "remotive") {
+      return { name: form.name || "Remotive", city: form.city || "Remoto", connector: "remotive" };
+    }
+    if (sourceType === "adzuna") {
+      return { name: form.name, city: form.city, connector: "adzuna", connector_config: adzunaWhat };
+    }
+    if (sourceType === "ats") {
+      if (!selectedMatch || !selectedMatch.slug) return null;
+      return { name: form.name, city: form.city, connector: selectedMatch.connector, connector_config: selectedMatch.slug };
+    }
+    return { name: form.name, city: form.city, source_url: form.source_url, site_url: form.site_url };
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -127,57 +153,35 @@ export default function FontesPage() {
     setSubmitting(true);
     setMessage(null);
     try {
-      if (editingId) {
-        const res = await fetch(`/api/sources/${editingId}`, {
-          method: "PATCH",
-          headers: authHeaders(),
-          body: JSON.stringify(form),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          setMessage(data.error ?? "Erro ao salvar alterações.");
-          return;
-        }
-        setMessage("Fonte atualizada.");
-        setEditingId(null);
-        setForm(emptyForm);
-        loadSources();
+      const payload = buildPayload();
+      if (!payload) {
+        setMessage(sourceType === "ats" ? "Detecte e escolha uma empresa (ou informe a plataforma e o slug) antes de salvar." : "Preencha os campos obrigatórios.");
         return;
       }
 
-      let payload: Record<string, string>;
-      if (sourceType === "remotive") {
-        payload = { name: form.name || "Remotive", city: form.city || "Remoto", connector: "remotive" };
-      } else if (sourceType === "adzuna") {
-        payload = { name: form.name, city: form.city, connector: "adzuna", connector_config: adzunaWhat };
-      } else if (sourceType === "ats") {
-        if (!selectedMatch) {
-          setMessage("Busque e escolha uma empresa detectada antes de cadastrar.");
-          return;
-        }
-        payload = { name: form.name, city: form.city, connector: selectedMatch.connector, connector_config: selectedMatch.slug };
-      } else {
-        payload = form;
-      }
-
-      const res = await fetch("/api/sources", {
-        method: "POST",
+      const url = editingId ? `/api/sources/${editingId}` : "/api/sources";
+      const res = await fetch(url, {
+        method: editingId ? "PATCH" : "POST",
         headers: authHeaders(),
         body: JSON.stringify(payload),
       });
       const data = await res.json();
 
       if (!res.ok) {
-        setMessage(data.error ?? "Erro ao cadastrar fonte.");
+        setMessage(data.error ?? (editingId ? "Erro ao salvar alterações." : "Erro ao cadastrar fonte."));
         return;
       }
+
+      const verb = editingId ? "atualizada" : "cadastrada";
       if (data.sync?.success) {
         const via = data.sync.mode === "html" ? "varrendo a página de vagas" : `via ${data.sync.mode}`;
-        setMessage(`Fonte cadastrada! ${data.sync.count} vaga(s) importada(s) ${via}.`);
+        setMessage(`Fonte ${verb}! ${data.sync.count} vaga(s) importada(s) ${via}.`);
       } else {
-        setMessage(`Fonte cadastrada, mas a sincronização falhou: ${data.sync?.error ?? "erro desconhecido"}.`);
+        setMessage(`Fonte ${verb}, mas a sincronização falhou: ${data.sync?.error ?? "erro desconhecido"}.`);
       }
+      setEditingId(null);
       setForm(emptyForm);
+      setSourceType("generic");
       resetSourceTypeFields();
       loadSources();
     } finally {
@@ -322,58 +326,86 @@ export default function FontesPage() {
 
         {sourceType === "ats" && (
           <div className="flex flex-col gap-3">
-            <p className="text-sm text-slate-500">
-              Digite o nome da empresa — o sistema tenta achar sozinho a API pública de vagas dela na Greenhouse ou na Lever
-              (as duas plataformas de recrutamento mais comuns que expõem isso).
-            </p>
-            <div className="flex flex-wrap items-end gap-3">
-              <div className="min-w-48 flex-1">
-                <Input label="Nome da empresa" value={companyQuery} onChange={setCompanyQuery} placeholder="Ex.: Nubank" />
-              </div>
-              <button
-                type="button"
-                onClick={handleDiscover}
-                disabled={discovering || !companyQuery.trim()}
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-100 disabled:opacity-50"
-              >
-                {discovering ? "Buscando..." : "Detectar"}
-              </button>
-            </div>
-
-            {discoverMatches !== null &&
-              (discoverMatches.length === 0 ? (
-                <p className="text-sm text-slate-400">Nenhuma API pública encontrada pra esse nome nessas plataformas. Tente outra variação do nome, ou cadastre pela URL genérica se você já tiver o link.</p>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  {discoverMatches.map((m) => (
-                    <label
-                      key={`${m.connector}:${m.slug}`}
-                      className={`flex cursor-pointer items-start gap-2 rounded-lg border p-2 text-sm ${
-                        selectedMatch?.slug === m.slug && selectedMatch.connector === m.connector
-                          ? "border-emerald-600 bg-emerald-50"
-                          : "border-slate-200 hover:bg-slate-50"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="ats-match"
-                        className="mt-1"
-                        checked={selectedMatch?.slug === m.slug && selectedMatch.connector === m.connector}
-                        onChange={() => {
-                          setSelectedMatch(m);
-                          setForm((f) => ({ ...f, name: f.name || companyQuery }));
-                        }}
-                      />
-                      <span>
-                        <span className="font-medium text-slate-800">
-                          {m.connector === "greenhouse" ? "Greenhouse" : "Lever"} · {m.slug} · {m.count} vaga(s)
-                        </span>
-                        {m.sampleTitles.length > 0 && <span className="block text-slate-500">{m.sampleTitles.join(" · ")}</span>}
-                      </span>
-                    </label>
-                  ))}
+            {editingId ? (
+              <>
+                <p className="text-sm text-slate-500">Ajuste a plataforma e o slug diretamente (ex.: se a detecção pegou o slug errado).</p>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <SelectField
+                    label="Plataforma"
+                    value={selectedMatch?.connector ?? "greenhouse"}
+                    onChange={(v) => setSelectedMatch((m) => ({ connector: v as AtsMatch["connector"], slug: m?.slug ?? "", count: 0, sampleTitles: [] }))}
+                  >
+                    <option value="greenhouse">Greenhouse</option>
+                    <option value="lever">Lever</option>
+                  </SelectField>
+                  <Input
+                    label="Slug da empresa"
+                    required
+                    value={selectedMatch?.slug ?? ""}
+                    onChange={(v) => setSelectedMatch((m) => ({ connector: m?.connector ?? "greenhouse", slug: v, count: 0, sampleTitles: [] }))}
+                    placeholder="ex.: gitlab"
+                  />
                 </div>
-              ))}
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-slate-500">
+                  Digite o nome da empresa — o sistema tenta achar sozinho a API pública de vagas dela na Greenhouse ou na
+                  Lever (as duas plataformas de recrutamento mais comuns que expõem isso).
+                </p>
+                <div className="flex flex-wrap items-end gap-3">
+                  <div className="min-w-48 flex-1">
+                    <Input label="Nome da empresa" value={companyQuery} onChange={setCompanyQuery} placeholder="Ex.: Nubank" />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleDiscover}
+                    disabled={discovering || !companyQuery.trim()}
+                    className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-100 disabled:opacity-50"
+                  >
+                    {discovering ? "Buscando..." : "Detectar"}
+                  </button>
+                </div>
+
+                {discoverMatches !== null &&
+                  (discoverMatches.length === 0 ? (
+                    <p className="text-sm text-slate-400">
+                      Nenhuma API pública encontrada pra esse nome nessas plataformas. Tente outra variação do nome, ou
+                      cadastre pela URL genérica se você já tiver o link.
+                    </p>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      {discoverMatches.map((m) => (
+                        <label
+                          key={`${m.connector}:${m.slug}`}
+                          className={`flex cursor-pointer items-start gap-2 rounded-lg border p-2 text-sm ${
+                            selectedMatch?.slug === m.slug && selectedMatch.connector === m.connector
+                              ? "border-emerald-600 bg-emerald-50"
+                              : "border-slate-200 hover:bg-slate-50"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="ats-match"
+                            className="mt-1"
+                            checked={selectedMatch?.slug === m.slug && selectedMatch.connector === m.connector}
+                            onChange={() => {
+                              setSelectedMatch(m);
+                              setForm((f) => ({ ...f, name: f.name || companyQuery }));
+                            }}
+                          />
+                          <span>
+                            <span className="font-medium text-slate-800">
+                              {m.connector === "greenhouse" ? "Greenhouse" : "Lever"} · {m.slug} · {m.count} vaga(s)
+                            </span>
+                            {m.sampleTitles.length > 0 && <span className="block text-slate-500">{m.sampleTitles.join(" · ")}</span>}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  ))}
+              </>
+            )}
 
             {selectedMatch && (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -643,6 +675,21 @@ function Input({
         onChange={(e) => onChange(e.target.value)}
         className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
       />
+    </label>
+  );
+}
+
+function SelectField({ label, value, onChange, children }: { label: string; value: string; onChange: (v: string) => void; children: ReactNode }) {
+  return (
+    <label className="flex flex-col gap-1 text-sm">
+      <span className="font-medium text-slate-700">{label}</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+      >
+        {children}
+      </select>
     </label>
   );
 }
