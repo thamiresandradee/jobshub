@@ -45,8 +45,8 @@ create table if not exists jobs (
   city text not null, -- "Remoto" para vagas sem cidade física
   state text,
   -- "Brasil" (confirmado) | nome do país estrangeiro (confirmado) | null
-  -- (desconhecido — tratado como Brasil no filtro, ver src/lib/cityFilter.ts
-  -- e /api/jobs). Vaga remota entra nos dois filtros, city/exterior, sempre.
+  -- (desconhecido — tratado como Brasil no filtro, ver /api/jobs e /api/meta).
+  -- O filtro Brasil/Exterior olha só esta coluna; work_type não entra na conta.
   country text,
   salary_min numeric,
   salary_max numeric,
