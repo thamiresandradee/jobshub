@@ -8,7 +8,16 @@ import { fetchLeverJobs } from "./connectors/lever";
 import { fetchGupyJobs } from "./connectors/gupy";
 import { fetchAdzunaJobs } from "./connectors/adzuna";
 import { fetchJoobleJobs } from "./connectors/jooble";
+import { filterByCityAllowlist } from "./cityFilter";
 import type { JobSource } from "./types";
+
+/**
+ * Gupy, Greenhouse e Lever não aceitam localização como parâmetro de busca
+ * — sempre devolvem o board inteiro da empresa. Pra esses três, filtramos
+ * pela cidade da fonte depois de buscar (ver src/lib/cityFilter.ts).
+ * Adzuna e Jooble já filtram na origem (`where`/`location`), não precisam.
+ */
+const CITY_FILTERED_CONNECTORS = new Set(["gupy", "greenhouse", "lever"]);
 
 export type SyncResult =
   | { success: true; count: number; mode: string; warnings: string[] }
@@ -73,7 +82,7 @@ export async function syncSource(sourceId: string): Promise<SyncResult> {
 
     if (source.connector) {
       const result = await fetchViaConnector(source);
-      jobs = result.jobs;
+      jobs = CITY_FILTERED_CONNECTORS.has(source.connector) ? filterByCityAllowlist(result.jobs, source.city) : result.jobs;
       warnings = result.warnings;
       mode = source.connector;
     } else {

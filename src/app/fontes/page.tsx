@@ -438,10 +438,19 @@ export default function FontesPage() {
             )}
 
             {selectedMatch && (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <Input label="Nome da fonte" required value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} placeholder={companyQuery} />
-                <Input label="Cidade base" required value={form.city} onChange={(v) => setForm((f) => ({ ...f, city: v }))} placeholder="Nacional" />
-              </div>
+              <>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <Input label="Nome da fonte" required value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} placeholder={companyQuery} />
+                  <Input label="Cidade base" required value={form.city} onChange={(v) => setForm((f) => ({ ...f, city: v }))} placeholder="Nacional" />
+                </div>
+                <p className="text-xs text-slate-400">
+                  Gupy/Greenhouse/Lever não têm busca por localização de verdade — trazem sempre o board inteiro da empresa,
+                  e a cidade aqui filtra depois de trazer. &quot;Nacional&quot; (ou deixar em branco por outra palavra
+                  parecida) importa todas as cidades sem filtrar. Pra restringir, liste as cidades separadas por vírgula
+                  (ex.: &quot;Campinas, Sumaré, Hortolândia, Valinhos, Indaiatuba&quot; pra cobrir a região) — vaga remota
+                  sempre entra, não importa a cidade configurada.
+                </p>
+              </>
             )}
           </div>
         )}
