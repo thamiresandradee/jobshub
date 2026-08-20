@@ -311,15 +311,17 @@ export default function FontesPage() {
               <Input label="Nome da fonte" required value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} placeholder="Adzuna - Campinas" />
               <Input label="Cidade (where)" required value={form.city} onChange={(v) => setForm((f) => ({ ...f, city: v }))} placeholder="Campinas" />
               <Input
-                label="O que buscar (what)"
+                label="O que buscar"
                 value={adzunaWhat}
                 onChange={setAdzunaWhat}
-                placeholder="desenvolvedor designer analista de dados"
+                placeholder="comercial, vendas, analista categoria"
               />
             </div>
             <p className="text-xs text-slate-400">
-              Pra mais de uma opção, separe por espaço — a busca traz vaga de qualquer um dos termos (não precisa bater com
-              todos). Deixe em branco pra trazer todas as vagas da cidade, sem filtrar por cargo.
+              Vírgula separa opções (traz vaga de qualquer uma delas). Dentro de uma opção, espaço exige todas as palavras
+              juntas — &quot;analista categoria&quot; traz só vaga com as duas, não qualquer vaga com uma delas solta (isso
+              evita pegar lixo tipo &quot;Motorista Categoria D&quot; ao buscar só por &quot;categoria&quot;). Deixe em
+              branco pra trazer todas as vagas da cidade, sem filtrar por cargo.
             </p>
           </div>
         )}
