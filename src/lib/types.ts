@@ -4,6 +4,8 @@ export type JobSource = {
   city: string;
   site_url: string | null;
   source_url: string;
+  connector: string | null; // null (genérico) | remotive | greenhouse | lever | adzuna
+  connector_config: string | null; // board slug (greenhouse/lever) ou termo buscado (adzuna)
   status: "active" | "paused";
   last_synced_at: string | null;
   last_sync_status: "success" | "error" | null;

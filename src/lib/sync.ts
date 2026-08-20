@@ -2,11 +2,36 @@ import { sql } from "./db";
 import { parseJobFeedJson, parseJobFeedXml, type ParsedJob } from "./feedParser";
 import { scrapeListingHtml, crawlListingPages, SCRAPER_USER_AGENT } from "./htmlScraper";
 import { normalizeCityName } from "./cityName";
+import { fetchRemotiveJobs } from "./connectors/remotive";
+import { fetchGreenhouseJobs } from "./connectors/greenhouse";
+import { fetchLeverJobs } from "./connectors/lever";
+import { fetchAdzunaJobs } from "./connectors/adzuna";
 import type { JobSource } from "./types";
 
 export type SyncResult =
-  | { success: true; count: number; mode: "json" | "xml" | "html"; warnings: string[] }
+  | { success: true; count: number; mode: string; warnings: string[] }
   | { success: false; error: string };
+
+/**
+ * Fontes com `connector` preenchido usam uma integração embutida (API
+ * pública conhecida) em vez do fetch genérico de `source_url` — ver
+ * src/lib/connectors/. `connector_config` guarda o que essa integração
+ * precisa (slug da empresa na Greenhouse/Lever, termo buscado na Adzuna).
+ */
+async function fetchViaConnector(source: JobSource): Promise<{ jobs: ParsedJob[]; warnings: string[] }> {
+  switch (source.connector) {
+    case "remotive":
+      return fetchRemotiveJobs();
+    case "greenhouse":
+      return fetchGreenhouseJobs(source.connector_config ?? "", source.name);
+    case "lever":
+      return fetchLeverJobs(source.connector_config ?? "", source.name);
+    case "adzuna":
+      return fetchAdzunaJobs(source.connector_config ?? "", source.city);
+    default:
+      throw new Error(`Conector desconhecido: ${source.connector}`);
+  }
+}
 
 /** Executa Promise.all em lotes pequenos, pra não abrir dezenas de conexões de uma vez. */
 async function inBatches<T>(items: T[], size: number, fn: (item: T) => Promise<void>) {
@@ -17,18 +42,16 @@ async function inBatches<T>(items: T[], size: number, fn: (item: T) => Promise<v
 }
 
 /**
- * Busca a URL cadastrada da fonte e sincroniza as vagas.
+ * Sincroniza as vagas de uma fonte. Duas formas de obter os dados:
  *
- * A URL pode ser:
- *  - um feed estruturado "de verdade" (JSON ou XML — ver src/lib/feedParser.ts),
- *    o caso ideal quando a fonte expõe uma API pública de vagas; ou
- *  - a própria página pública de busca/listagem de vagas do site, que a
- *    gente varre via HTML (ver src/lib/htmlScraper.ts), pro caso mais comum
- *    de não ter esse feed disponível.
- *
- * O formato é detectado automaticamente pelo `content-type` e pelo início do
- * corpo da resposta: tentamos JSON primeiro (mais comum em plataformas de
- * vaga modernas), depois XML, e por fim tratamos como HTML.
+ *  1. Conector embutido (`source.connector` preenchido) — API pública
+ *     conhecida (Remotive, Greenhouse, Lever, Adzuna), ver
+ *     src/lib/connectors/. Preferível sempre que existir: são endpoints
+ *     feitos pra esse uso, sem risco de ToS.
+ *  2. Genérico (`source.connector` nulo) — busca `source.source_url` e
+ *     detecta o formato sozinho pelo `content-type`/corpo da resposta: JSON
+ *     ou XML estruturado (src/lib/feedParser.ts), ou HTML best-effort
+ *     (src/lib/htmlScraper.ts) como último recurso.
  */
 export async function syncSource(sourceId: string): Promise<SyncResult> {
   const rows = (await sql`select * from sources where id = ${sourceId}`) as JobSource[];
@@ -38,48 +61,55 @@ export async function syncSource(sourceId: string): Promise<SyncResult> {
   }
 
   try {
-    const res = await fetch(source.source_url, {
-      headers: { "User-Agent": SCRAPER_USER_AGENT, Accept: "application/json, application/xml, text/html" },
-      signal: AbortSignal.timeout(20_000),
-      cache: "no-store", // o fetch do Next.js faz cache/dedup por padrão; sync sempre quer dado fresco
-    });
-    if (!res.ok) {
-      throw new Error(`URL retornou HTTP ${res.status}`);
-    }
-    const contentType = res.headers.get("content-type") ?? "";
-    const body = await res.text();
-    const trimmed = body.trimStart();
-
     let jobs: ParsedJob[];
     let warnings: string[] = [];
-    let mode: "json" | "xml" | "html";
+    let mode: string;
 
-    const looksJson = contentType.includes("json") || trimmed.startsWith("{") || trimmed.startsWith("[");
-    const looksXml = !looksJson && (contentType.includes("xml") || /^<\?xml/i.test(trimmed));
-
-    if (looksJson) {
-      const parsed = parseJobFeedJson(body);
-      jobs = parsed.jobs;
-      warnings = parsed.warnings;
-      mode = "json";
-    } else if (looksXml) {
-      const parsed = parseJobFeedXml(body);
-      jobs = parsed.jobs;
-      warnings = parsed.warnings;
-      mode = "xml";
+    if (source.connector) {
+      const result = await fetchViaConnector(source);
+      jobs = result.jobs;
+      warnings = result.warnings;
+      mode = source.connector;
     } else {
-      const seedPage = scrapeListingHtml(body, source.source_url, source.city);
-      const crawl = await crawlListingPages(source.source_url, source.city, seedPage);
-      jobs = crawl.jobs;
-      warnings = crawl.warnings;
-      mode = "html";
+      const res = await fetch(source.source_url, {
+        headers: { "User-Agent": SCRAPER_USER_AGENT, Accept: "application/json, application/xml, text/html" },
+        signal: AbortSignal.timeout(20_000),
+        cache: "no-store", // o fetch do Next.js faz cache/dedup por padrão; sync sempre quer dado fresco
+      });
+      if (!res.ok) {
+        throw new Error(`URL retornou HTTP ${res.status}`);
+      }
+      const contentType = res.headers.get("content-type") ?? "";
+      const body = await res.text();
+      const trimmed = body.trimStart();
+
+      const looksJson = contentType.includes("json") || trimmed.startsWith("{") || trimmed.startsWith("[");
+      const looksXml = !looksJson && (contentType.includes("xml") || /^<\?xml/i.test(trimmed));
+
+      if (looksJson) {
+        const parsed = parseJobFeedJson(body);
+        jobs = parsed.jobs;
+        warnings = parsed.warnings;
+        mode = "json";
+      } else if (looksXml) {
+        const parsed = parseJobFeedXml(body);
+        jobs = parsed.jobs;
+        warnings = parsed.warnings;
+        mode = "xml";
+      } else {
+        const seedPage = scrapeListingHtml(body, source.source_url, source.city);
+        const crawl = await crawlListingPages(source.source_url, source.city, seedPage);
+        jobs = crawl.jobs;
+        warnings = crawl.warnings;
+        mode = "html";
+      }
     }
 
     if (jobs.length === 0) {
       throw new Error(
         mode === "html"
           ? "A página foi lida, mas não conseguimos reconhecer nenhum card de vaga nela."
-          : `A URL foi lida como ${mode.toUpperCase()}, mas nenhuma vaga válida foi encontrada nela.`
+          : `A busca foi feita (${mode}), mas nenhuma vaga válida foi encontrada.`
       );
     }
 

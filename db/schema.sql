@@ -12,12 +12,24 @@ create table if not exists sources (
   -- própria página pública de busca/listagem de vagas do site (ver src/lib/sync.ts).
   source_url text not null,
   status text not null default 'active', -- active | paused
+  -- Conector embutido usado pra sincronizar, no lugar do fetch genérico de
+  -- source_url: null (padrão) = feed JSON/XML/HTML genérico via source_url;
+  -- 'remotive' = API pública da Remotive (vagas remotas globais);
+  -- 'greenhouse'/'lever' = API pública de vagas da empresa nessas ATS
+  -- (connector_config = board token/slug da empresa);
+  -- 'adzuna' = busca na API da Adzuna (connector_config = termo buscado,
+  -- reaproveita a coluna city como o parâmetro de localização "where").
+  connector text,
+  connector_config text,
   last_synced_at timestamptz,
   last_sync_status text, -- success | error
   last_sync_error text,
   jobs_count int not null default 0,
   created_at timestamptz not null default now()
 );
+
+alter table sources add column if not exists connector text;
+alter table sources add column if not exists connector_config text;
 
 create table if not exists jobs (
   id uuid primary key default gen_random_uuid(),

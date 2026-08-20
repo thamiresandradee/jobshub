@@ -13,26 +13,41 @@ sem precisar criar conta — só um UUID anônimo salvo no navegador.
 - **Neon** (Postgres serverless), acessado direto via `@neondatabase/serverless`, sem ORM
 - **Vercel** para deploy + Cron Jobs (sincronização automática 2x/dia)
 
-## Como funciona a sincronização
+## Como encontrar vagas sem saber os sites
 
-A fonte é cadastrada com uma única URL de origem, que pode ser:
+O ponto de partida do VagasHub não é "eu sei a URL da vaga" — é "eu quero encontrar
+vagas e não sei onde procurar". Pra isso, `/fontes` oferece quatro formas de cadastrar
+uma fonte, dos dois lados dessa dificuldade:
 
-1. **Um feed estruturado de verdade** (`src/lib/feedParser.ts`) — o ideal, quando a
-   fonte expõe uma API pública de vagas em **JSON** (o formato mais comum em
-   plataformas de recrutamento modernas) ou **XML/RSS**. Tolerante a variações
-   de nomenclatura: acha a lista de vagas automaticamente e reconhece campos
-   comuns por uma lista de nomes alternativos (pt-BR/en).
-2. **A própria página pública de busca/listagem de vagas do site** (`src/lib/htmlScraper.ts`)
-   — o caso mais comum, usado quando não se tem acesso a um feed. O sistema varre o
-   HTML público do site em busca de "cards" de vaga (localização, modalidade,
-   senioridade, salário) e segue a paginação automaticamente.
+1. **Remotive** (`src/lib/connectors/remotive.ts`) — um clique importa vagas 100%
+   remotas da API pública da Remotive, já filtradas por elegibilidade
+   Brasil/LATAM/mundial. A [própria Remotive autoriza esse uso](https://remotive.com/api-documentation)
+   desde que sempre linkemos de volta pro anúncio original e a citemos como fonte — é
+   exatamente o que o app faz (botão "Ver vaga" + selo "via Remotive" em cada card).
+2. **Adzuna** (`src/lib/connectors/adzuna.ts`) — busca vagas no Brasil (inclui
+   presencial/híbrido, não só remoto) via API oficial. Precisa de `ADZUNA_APP_ID`/
+   `ADZUNA_APP_KEY` grátis — crie uma conta em [developer.adzuna.com](https://developer.adzuna.com/).
+   Cada fonte representa uma busca salva: o campo "cidade" da fonte é o `where`, e
+   `connector_config` guarda o `what`.
+3. **Empresa via Greenhouse/Lever** (`src/lib/connectors/greenhouse.ts`,
+   `.../lever.ts`) — você digita só o nome da empresa, e `POST /api/sources/discover`
+   tenta variações do nome como slug contra as APIs públicas de board dessas duas ATS
+   (as mais comuns entre empresas que expõem vagas via API). Resolve o "eu conheço a
+   empresa, não sei o link do board de carreiras dela".
+4. **URL genérica** (`src/lib/feedParser.ts` + `src/lib/htmlScraper.ts`) — pra quando
+   você já tem o link de um feed (JSON/XML) ou da página de vagas de um site
+   específico (ex.: a página de carreiras de uma empresa pequena/média, sem API
+   própria). O formato é detectado sozinho: tenta JSON, depois XML, e por fim trata
+   como HTML — varrendo "cards" de vaga por localização/modalidade/senioridade/salário
+   e seguindo a paginação. Best effort: campos não reconhecidos ficam `null`.
 
-O formato é detectado sozinho (`src/lib/sync.ts`): tenta ler como JSON primeiro, depois
-XML, e se não for nenhum dos dois, trata como HTML. Os três caminhos são "melhor
-esforço" — campos que não forem reconhecidos ficam `null`, e sites que montam a
-listagem inteiramente via JavaScript no navegador (SPA — o caso de muitos grandes
-portais de emprego, como LinkedIn, Indeed ou Gupy) não são suportados pelo scraper de
-HTML, já que ele não usa um navegador headless.
+**Por que não Indeed/LinkedIn/vagas.com.br direto?** Testamos: essas plataformas usam
+proteção anti-bot ativa (o próprio Indeed devolveu HTTP 403 numa tentativa de cadastro
+aqui) e o `robots.txt` delas proíbe explicitamente crawlear as páginas de busca — a da
+vagas.com.br bloqueia especificamente `/vagas/pesquisas`, e as duas bloqueiam por nome
+os crawlers de IA, incluindo o da Anthropic. Contornar isso fingindo ser um navegador
+humano iria contra o que os próprios sites pediram, então o app não tenta. As 4 opções
+acima existem justamente para cobrir essa lacuna por vias que autorizam o uso.
 
 Vagas sem cidade física (100% remotas) recebem a cidade especial `"Remoto"`,
 que também aparece como opção no filtro de cidade.

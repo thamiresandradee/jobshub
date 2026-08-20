@@ -2,6 +2,7 @@ import * as cheerio from "cheerio";
 import type { CheerioAPI } from "cheerio";
 import type { ParsedJob } from "./feedParser";
 import { parseSalaryRange } from "./salary";
+import { WORK_TYPE_KEYWORDS, SENIORITY_KEYWORDS, CONTRACT_KEYWORDS, CATEGORY_KEYWORDS, matchFirst } from "./jobKeywords";
 
 /**
  * Scraper genérico "melhor esforço" para páginas de busca/listagem de
@@ -39,44 +40,6 @@ const REMOTE_WORD_RE = /remoto|home[\s-]?office/i;
 const CITY_UF_RE = /([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'.\s-]{1,38})[,/]\s*([A-Za-z]{2})\b/;
 const LOCATION_HINT_RE = new RegExp(`${REMOTE_WORD_RE.source}|${CITY_UF_RE.source}`, "i");
 
-const WORK_TYPE_KEYWORDS: [RegExp, string][] = [
-  [/h[ií]brido/i, "hibrido"],
-  [/presencial/i, "presencial"],
-  [/remoto|home[\s-]?office/i, "remoto"],
-];
-
-const SENIORITY_KEYWORDS: [RegExp, string][] = [
-  [/est[aá]gi[oá]/i, "estagio"],
-  [/j[uú]nior|\bjr\b/i, "junior"],
-  [/pleno/i, "pleno"],
-  [/s[eê]nior|\bsr\b/i, "senior"],
-  [/especialista/i, "especialista"],
-];
-
-const CONTRACT_KEYWORDS: [RegExp, string][] = [
-  [/\bclt\b/i, "clt"],
-  [/\bpj\b|pessoa jur[ií]dica/i, "pj"],
-  [/est[aá]gi[oá]/i, "estagio"],
-  [/freelan(cer|ce)?/i, "freelancer"],
-  [/tempor[aá]rio/i, "temporario"],
-];
-
-const CATEGORY_KEYWORDS: [RegExp, string][] = [
-  [/desenvolv|program|software|\bti\b|tecnologia|dados/i, "TI"],
-  [/marketing/i, "Marketing"],
-  [/vendas|comercial/i, "Vendas"],
-  [/recursos humanos|\brh\b/i, "RH"],
-  [/financeiro|cont[aá]bil/i, "Financeiro"],
-  [/design|\bux\b|\bui\b/i, "Design"],
-  [/atendimento|suporte|\bsac\b/i, "Atendimento"],
-  [/jur[ií]dico|advocacia/i, "Jurídico"],
-  [/engenharia/i, "Engenharia"],
-  [/sa[uú]de|enfermagem|medicina/i, "Saúde"],
-  [/educa[cç][aã]o|professor|ensino/i, "Educação"],
-  [/log[ií]stica|estoque|almoxarifado/i, "Logística"],
-  [/administrativo/i, "Administrativo"],
-];
-
 function resolveUrl(href: string, base: string): string | null {
   try {
     return new URL(href, base).toString();
@@ -97,13 +60,6 @@ function sameHost(url: string, base: string): boolean {
   } catch {
     return false;
   }
-}
-
-function matchFirst(text: string, keywords: [RegExp, string][]): string | null {
-  for (const [re, label] of keywords) {
-    if (re.test(text)) return label;
-  }
-  return null;
 }
 
 /**

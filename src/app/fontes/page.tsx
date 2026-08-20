@@ -15,6 +15,9 @@ function formatDate(iso: string | null) {
 
 const emptyForm = { name: "", city: "", source_url: "", site_url: "" };
 
+type SourceType = "generic" | "remotive" | "adzuna" | "ats";
+type AtsMatch = { connector: "greenhouse" | "lever"; slug: string; count: number; sampleTitles: string[] };
+
 export default function FontesPage() {
   const adminKey = useAdminKey();
   const [sources, setSources] = useState<JobSource[]>([]);
@@ -27,6 +30,38 @@ export default function FontesPage() {
   const [authError, setAuthError] = useState(false);
   const [activeCity, setActiveCity] = useState<string>("");
   const [page, setPage] = useState(1);
+
+  const [sourceType, setSourceType] = useState<SourceType>("generic");
+  const [adzunaWhat, setAdzunaWhat] = useState("");
+  const [companyQuery, setCompanyQuery] = useState("");
+  const [discovering, setDiscovering] = useState(false);
+  const [discoverMatches, setDiscoverMatches] = useState<AtsMatch[] | null>(null);
+  const [selectedMatch, setSelectedMatch] = useState<AtsMatch | null>(null);
+
+  function resetSourceTypeFields() {
+    setAdzunaWhat("");
+    setCompanyQuery("");
+    setDiscoverMatches(null);
+    setSelectedMatch(null);
+  }
+
+  async function handleDiscover() {
+    if (!companyQuery.trim()) return;
+    setDiscovering(true);
+    setDiscoverMatches(null);
+    setSelectedMatch(null);
+    try {
+      const res = await fetch("/api/sources/discover", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ companyName: companyQuery.trim() }),
+      });
+      const data = await res.json();
+      setDiscoverMatches(res.ok ? (data.matches ?? []) : []);
+    } finally {
+      setDiscovering(false);
+    }
+  }
 
   function authHeaders() {
     return { "Content-Type": "application/json", "x-admin-key": adminKey ?? "" };
@@ -71,6 +106,8 @@ export default function FontesPage() {
 
   function startEdit(source: JobSource) {
     setEditingId(source.id);
+    setSourceType("generic");
+    resetSourceTypeFields();
     setForm({
       name: source.name,
       city: source.city,
@@ -108,10 +145,25 @@ export default function FontesPage() {
         return;
       }
 
+      let payload: Record<string, string>;
+      if (sourceType === "remotive") {
+        payload = { name: form.name || "Remotive", city: form.city || "Remoto", connector: "remotive" };
+      } else if (sourceType === "adzuna") {
+        payload = { name: form.name, city: form.city, connector: "adzuna", connector_config: adzunaWhat };
+      } else if (sourceType === "ats") {
+        if (!selectedMatch) {
+          setMessage("Busque e escolha uma empresa detectada antes de cadastrar.");
+          return;
+        }
+        payload = { name: form.name, city: form.city, connector: selectedMatch.connector, connector_config: selectedMatch.slug };
+      } else {
+        payload = form;
+      }
+
       const res = await fetch("/api/sources", {
         method: "POST",
         headers: authHeaders(),
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
 
@@ -120,12 +172,13 @@ export default function FontesPage() {
         return;
       }
       if (data.sync?.success) {
-        const via = data.sync.mode === "html" ? "varrendo a página de vagas" : `via feed ${data.sync.mode.toUpperCase()}`;
+        const via = data.sync.mode === "html" ? "varrendo a página de vagas" : `via ${data.sync.mode}`;
         setMessage(`Fonte cadastrada! ${data.sync.count} vaga(s) importada(s) ${via}.`);
       } else {
         setMessage(`Fonte cadastrada, mas a sincronização falhou: ${data.sync?.error ?? "erro desconhecido"}.`);
       }
       setForm(emptyForm);
+      resetSourceTypeFields();
       loadSources();
     } finally {
       setSubmitting(false);
@@ -198,26 +251,131 @@ export default function FontesPage() {
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Fontes de vagas</h1>
         <p className="text-sm text-slate-500">
-          Cadastre a URL de origem das vagas: um feed estruturado (JSON ou XML), se você tiver um, ou a própria página de
-          busca/listagem de vagas do site. Sincronizamos automaticamente 2x por dia — ou clique em &quot;Sincronizar
-          agora&quot; quando quiser.
+          Cadastre de onde tirar as vagas: uma integração pronta (Remotive, Adzuna, ou detectando a empresa automaticamente
+          na Greenhouse/Lever), ou uma URL genérica (feed estruturado ou página de listagem) quando você já souber o link.
+          Sincronizamos automaticamente 1x por dia — ou clique em &quot;Sincronizar agora&quot; quando quiser.
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-2">
-        <Input label="Nome da fonte (empresa ou site de vagas)" required value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} />
-        <Input label="Cidade base" required value={form.city} onChange={(v) => setForm((f) => ({ ...f, city: v }))} />
-        <Input
-          label="URL do feed ou da página de vagas"
-          required
-          type="url"
-          value={form.source_url}
-          onChange={(v) => setForm((f) => ({ ...f, source_url: v }))}
-          placeholder="https://empresa.com.br/carreiras..."
-        />
-        <Input label="Site (opcional)" type="url" value={form.site_url} onChange={(v) => setForm((f) => ({ ...f, site_url: v }))} placeholder="https://..." />
+      {!editingId && (
+        <div className="flex flex-wrap gap-2">
+          <SourceTypeTab active={sourceType === "generic"} onClick={() => setSourceType("generic")} label="URL genérica" />
+          <SourceTypeTab active={sourceType === "remotive"} onClick={() => setSourceType("remotive")} label="Remotive" />
+          <SourceTypeTab active={sourceType === "adzuna"} onClick={() => setSourceType("adzuna")} label="Adzuna" />
+          <SourceTypeTab active={sourceType === "ats"} onClick={() => setSourceType("ats")} label="Empresa (detectar automaticamente)" />
+        </div>
+      )}
 
-        <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        {sourceType === "generic" && (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Input label="Nome da fonte (empresa ou site de vagas)" required value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} />
+            <Input label="Cidade base" required value={form.city} onChange={(v) => setForm((f) => ({ ...f, city: v }))} />
+            <Input
+              label="URL do feed ou da página de vagas"
+              required
+              type="url"
+              value={form.source_url}
+              onChange={(v) => setForm((f) => ({ ...f, source_url: v }))}
+              placeholder="https://empresa.com.br/carreiras..."
+            />
+            <Input label="Site (opcional)" type="url" value={form.site_url} onChange={(v) => setForm((f) => ({ ...f, site_url: v }))} placeholder="https://..." />
+          </div>
+        )}
+
+        {sourceType === "remotive" && (
+          <div className="flex flex-col gap-3">
+            <p className="text-sm text-slate-500">
+              Importa vagas 100% remotas da API pública da Remotive, filtradas pra quem pode se candidatar do Brasil (Brasil,
+              LATAM, Américas ou mundial). Sem salário — a maioria é cotada em dólar, e o resto do site assume R$.
+            </p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Input label="Nome (opcional)" value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} placeholder="Remotive" />
+              <Input label="Cidade base (opcional)" value={form.city} onChange={(v) => setForm((f) => ({ ...f, city: v }))} placeholder="Remoto" />
+            </div>
+          </div>
+        )}
+
+        {sourceType === "adzuna" && (
+          <div className="flex flex-col gap-3">
+            <p className="text-sm text-slate-500">
+              Busca vagas no Brasil via API da Adzuna (inclui presencial/híbrido). Precisa de{" "}
+              <code className="rounded bg-slate-100 px-1 py-0.5">ADZUNA_APP_ID</code>/
+              <code className="rounded bg-slate-100 px-1 py-0.5">ADZUNA_APP_KEY</code> configurados no servidor.
+            </p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <Input label="Nome da fonte" required value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} placeholder="Adzuna - Campinas" />
+              <Input label="Cidade (where)" required value={form.city} onChange={(v) => setForm((f) => ({ ...f, city: v }))} placeholder="Campinas" />
+              <Input label="O que buscar (what)" value={adzunaWhat} onChange={setAdzunaWhat} placeholder="desenvolvedor" />
+            </div>
+          </div>
+        )}
+
+        {sourceType === "ats" && (
+          <div className="flex flex-col gap-3">
+            <p className="text-sm text-slate-500">
+              Digite o nome da empresa — o sistema tenta achar sozinho a API pública de vagas dela na Greenhouse ou na Lever
+              (as duas plataformas de recrutamento mais comuns que expõem isso).
+            </p>
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="min-w-48 flex-1">
+                <Input label="Nome da empresa" value={companyQuery} onChange={setCompanyQuery} placeholder="Ex.: Nubank" />
+              </div>
+              <button
+                type="button"
+                onClick={handleDiscover}
+                disabled={discovering || !companyQuery.trim()}
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-100 disabled:opacity-50"
+              >
+                {discovering ? "Buscando..." : "Detectar"}
+              </button>
+            </div>
+
+            {discoverMatches !== null &&
+              (discoverMatches.length === 0 ? (
+                <p className="text-sm text-slate-400">Nenhuma API pública encontrada pra esse nome nessas plataformas. Tente outra variação do nome, ou cadastre pela URL genérica se você já tiver o link.</p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {discoverMatches.map((m) => (
+                    <label
+                      key={`${m.connector}:${m.slug}`}
+                      className={`flex cursor-pointer items-start gap-2 rounded-lg border p-2 text-sm ${
+                        selectedMatch?.slug === m.slug && selectedMatch.connector === m.connector
+                          ? "border-emerald-600 bg-emerald-50"
+                          : "border-slate-200 hover:bg-slate-50"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="ats-match"
+                        className="mt-1"
+                        checked={selectedMatch?.slug === m.slug && selectedMatch.connector === m.connector}
+                        onChange={() => {
+                          setSelectedMatch(m);
+                          setForm((f) => ({ ...f, name: f.name || companyQuery }));
+                        }}
+                      />
+                      <span>
+                        <span className="font-medium text-slate-800">
+                          {m.connector === "greenhouse" ? "Greenhouse" : "Lever"} · {m.slug} · {m.count} vaga(s)
+                        </span>
+                        {m.sampleTitles.length > 0 && <span className="block text-slate-500">{m.sampleTitles.join(" · ")}</span>}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              ))}
+
+            {selectedMatch && (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Input label="Nome da fonte" required value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} placeholder={companyQuery} />
+                <Input label="Cidade base" required value={form.city} onChange={(v) => setForm((f) => ({ ...f, city: v }))} placeholder="Nacional" />
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center gap-3">
           <button
             type="submit"
             disabled={submitting}
@@ -297,6 +455,20 @@ export default function FontesPage() {
 
       {!loading && filteredSources.length > 0 && <Pagination page={page} totalPages={totalPages} onChange={setPage} />}
     </main>
+  );
+}
+
+function SourceTypeTab({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition ${
+        active ? "border-emerald-600 bg-emerald-600 text-white" : "border-slate-300 text-slate-600 hover:bg-slate-50"
+      }`}
+    >
+      {label}
+    </button>
   );
 }
 
