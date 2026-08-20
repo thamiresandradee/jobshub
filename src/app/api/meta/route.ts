@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
     .filter(Boolean);
   const abroad = req.nextUrl.searchParams.get("abroad") === "true";
 
-  const countryCondition = abroad ? "(city = 'Remoto' or (country is not null and lower(country) <> 'brasil'))" : "(city = 'Remoto' or country is null or lower(country) = 'brasil')";
+  const countryCondition = abroad ? "(country is not null and lower(country) <> 'brasil')" : "(country is null or lower(country) = 'brasil')";
 
   const cityParams: unknown[] = [];
   const cityConditions = [countryCondition];

@@ -46,13 +46,9 @@ export async function GET(req: NextRequest) {
 
   if (search) addCondition("j.title ilike ?", `%${search}%`);
   // País desconhecido (null) conta como Brasil por padrão — ver
-  // src/lib/location.ts (inferCountry). Vaga remota sempre passa nos dois
-  // modos, já que não faz sentido restringir por localização física.
-  conditions.push(
-    abroad
-      ? "(j.work_type = 'remoto' or (j.country is not null and lower(j.country) <> 'brasil'))"
-      : "(j.work_type = 'remoto' or j.country is null or lower(j.country) = 'brasil')"
-  );
+  // src/lib/location.ts (inferCountry). Modalidade (remoto/híbrido/
+  // presencial) não entra nessa conta — o filtro é só sobre o país da vaga.
+  conditions.push(abroad ? "(j.country is not null and lower(j.country) <> 'brasil')" : "(j.country is null or lower(j.country) = 'brasil')");
   if (cities.length) addCondition("j.city = any(?)", cities);
   if (workTypes.length) addCondition("j.work_type = any(?)", workTypes);
   if (seniorities.length) addCondition("j.seniority = any(?)", seniorities);
