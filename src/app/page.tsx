@@ -67,6 +67,7 @@ export default function HomePage() {
     const effectiveCities = debouncedFilters.city?.length ? debouncedFilters.city : scoped ? cityScope : undefined;
 
     const params = new URLSearchParams();
+    if (debouncedFilters.q) params.set("q", debouncedFilters.q);
     if (effectiveCities?.length) params.set("city", effectiveCities.join(","));
     if (debouncedFilters.workType) params.set("workType", debouncedFilters.workType);
     if (debouncedFilters.seniority) params.set("seniority", debouncedFilters.seniority);

@@ -7,6 +7,7 @@ const PAGE_SIZE_DEFAULT = 24;
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams;
 
+  const search = q.get("q")?.trim() || null;
   const cities = (q.get("city") ?? "")
     .split(",")
     .map((c) => c.trim())
@@ -30,6 +31,7 @@ export async function GET(req: NextRequest) {
     conditions.push(clause.replace("?", `$${params.length}`));
   }
 
+  if (search) addCondition("j.title ilike ?", `%${search}%`);
   if (cities.length) addCondition("j.city = any(?)", cities);
   if (workType) addCondition("j.work_type = ?", workType);
   if (seniority) addCondition("j.seniority = ?", seniority);

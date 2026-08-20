@@ -38,6 +38,7 @@ export type Job = {
 };
 
 export type JobFilters = {
+  q?: string; // busca por texto no título da vaga
   city?: string[];
   workType?: string;
   seniority?: string;

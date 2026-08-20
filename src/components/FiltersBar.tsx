@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Search } from "lucide-react";
 import type { JobFilters } from "@/lib/types";
 import { parseBRNumber } from "@/lib/brNumber";
 
@@ -22,9 +22,26 @@ export function FiltersBar({
 }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      {/* Cidade fica sozinha, numa linha maior — é o filtro mais usado. O
-          resto vai numa segunda linha, sempre (em todos os tamanhos de tela). */}
+      {/* Busca por texto fica em cima de tudo — é o primeiro filtro que
+          qualquer pessoa tenta usar. Cidade vem logo depois, numa linha
+          maior por ser o segundo filtro mais usado. O resto vai numa
+          segunda linha, sempre (em todos os tamanhos de tela). */}
       <div className="w-full">
+        <Field label="Buscar por cargo" labelClassName="text-sm font-semibold text-slate-700">
+          <div className="relative">
+            <Search size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={filters.q ?? ""}
+              onChange={(e) => onChange({ q: e.target.value || undefined })}
+              placeholder="Ex.: desenvolvedor, analista de dados, designer..."
+              className="w-full rounded-lg border border-slate-300 bg-white py-3 pl-10 pr-4 text-base focus:border-emerald-500 focus:outline-none"
+            />
+          </div>
+        </Field>
+      </div>
+
+      <div className="mt-3 w-full">
         <CityMultiSelect cities={meta.cities} selected={filters.city ?? []} onChange={(v) => onChange({ city: v.length ? v : undefined })} />
       </div>
 
@@ -79,6 +96,7 @@ export function FiltersBar({
           type="button"
           onClick={() =>
             onChange({
+              q: undefined,
               city: undefined,
               workType: undefined,
               seniority: undefined,
