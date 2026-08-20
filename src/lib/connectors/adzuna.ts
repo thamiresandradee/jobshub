@@ -100,7 +100,8 @@ function toParsedJob(r: AdzunaResult): ParsedJob {
 }
 
 const RESULTS_PER_PAGE = 50;
-const TOTAL_PAGE_BUDGET = 12; // teto de chamadas por sync, dividido entre os grupos
+const MAX_PAGES_PER_GROUP = 4; // até 200 vagas por grupo — fixo, não divide conforme o nº de grupos
+const MAX_GROUPS = 10; // teto de grupos por fonte, só pra não sair buscando 50 termos numa fonte só
 
 /** Busca um único grupo (AND das palavras dele), paginando até o teto de páginas dado. */
 async function fetchGroup(appId: string, appKey: string, group: string, where: string, maxPages: number): Promise<AdzunaResult[]> {
@@ -144,15 +145,14 @@ export async function fetchAdzunaJobs(what: string, where: string): Promise<{ jo
     .split(",")
     .map((g) => g.trim())
     .filter(Boolean);
-  const searches = groups.length > 0 ? groups : [""]; // sem termo nenhum: uma busca só, sem filtro de cargo
-
-  const maxPagesPerGroup = Math.max(1, Math.floor(TOTAL_PAGE_BUDGET / searches.length));
+  const searches = (groups.length > 0 ? groups : [""]).slice(0, MAX_GROUPS); // sem termo nenhum: uma busca só, sem filtro de cargo
+  const warnings = groups.length > MAX_GROUPS ? [`Só as primeiras ${MAX_GROUPS} opções separadas por vírgula foram buscadas.`] : [];
 
   const byId = new Map<string, AdzunaResult>();
   for (const group of searches) {
-    const results = await fetchGroup(appId, appKey, group, where, maxPagesPerGroup);
+    const results = await fetchGroup(appId, appKey, group, where, MAX_PAGES_PER_GROUP);
     for (const r of results) byId.set(r.id, r); // dedup: mesma vaga batendo em dois grupos conta uma vez só
   }
 
-  return { jobs: [...byId.values()].map(toParsedJob), warnings: [] };
+  return { jobs: [...byId.values()].map(toParsedJob), warnings };
 }
