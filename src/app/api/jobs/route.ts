@@ -8,6 +8,7 @@ export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams;
 
   const search = q.get("q")?.trim() || null;
+  const abroad = q.get("abroad") === "true";
   const cities = (q.get("city") ?? "")
     .split(",")
     .map((c) => c.trim())
@@ -32,6 +33,14 @@ export async function GET(req: NextRequest) {
   }
 
   if (search) addCondition("j.title ilike ?", `%${search}%`);
+  // País desconhecido (null) conta como Brasil por padrão — ver
+  // src/lib/location.ts (inferCountry). Vaga remota sempre passa nos dois
+  // modos, já que não faz sentido restringir por localização física.
+  conditions.push(
+    abroad
+      ? "(j.work_type = 'remoto' or (j.country is not null and lower(j.country) <> 'brasil'))"
+      : "(j.work_type = 'remoto' or j.country is null or lower(j.country) = 'brasil')"
+  );
   if (cities.length) addCondition("j.city = any(?)", cities);
   if (workType) addCondition("j.work_type = ?", workType);
   if (seniority) addCondition("j.seniority = ?", seniority);

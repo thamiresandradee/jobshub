@@ -44,6 +44,10 @@ create table if not exists jobs (
   category text, -- área/categoria: TI, Marketing, Vendas, etc
   city text not null, -- "Remoto" para vagas sem cidade física
   state text,
+  -- "Brasil" (confirmado) | nome do país estrangeiro (confirmado) | null
+  -- (desconhecido — tratado como Brasil no filtro, ver src/lib/cityFilter.ts
+  -- e /api/jobs). Vaga remota entra nos dois filtros, city/exterior, sempre.
+  country text,
   salary_min numeric,
   salary_max numeric,
   source_url text,
@@ -52,7 +56,10 @@ create table if not exists jobs (
   unique (source_id, external_id)
 );
 
+alter table jobs add column if not exists country text;
+
 create index if not exists idx_jobs_city on jobs (city);
+create index if not exists idx_jobs_country on jobs (country);
 create index if not exists idx_jobs_work_type on jobs (work_type);
 create index if not exists idx_jobs_seniority on jobs (seniority);
 create index if not exists idx_jobs_contract_type on jobs (contract_type);

@@ -35,12 +35,14 @@ export default function HomePage() {
 
   useEffect(() => {
     if (cityScope === undefined) return; // ainda não checou o escopo salvo
-    const params = scoped ? `?cities=${encodeURIComponent(cityScope.join(","))}` : "";
-    fetch(`/api/meta${params}`)
+    const params = new URLSearchParams();
+    if (scoped) params.set("cities", cityScope.join(","));
+    if (debouncedFilters.abroad) params.set("abroad", "true");
+    fetch(`/api/meta?${params.toString()}`)
       .then((r) => r.json())
       .then(setMeta)
       .catch(() => {});
-  }, [cityScope, scoped]);
+  }, [cityScope, scoped, debouncedFilters.abroad]);
 
   useEffect(() => {
     if (cityScope === undefined) return; // ainda não checou o escopo salvo
@@ -68,6 +70,7 @@ export default function HomePage() {
 
     const params = new URLSearchParams();
     if (debouncedFilters.q) params.set("q", debouncedFilters.q);
+    if (debouncedFilters.abroad) params.set("abroad", "true");
     if (effectiveCities?.length) params.set("city", effectiveCities.join(","));
     if (debouncedFilters.workType) params.set("workType", debouncedFilters.workType);
     if (debouncedFilters.seniority) params.set("seniority", debouncedFilters.seniority);

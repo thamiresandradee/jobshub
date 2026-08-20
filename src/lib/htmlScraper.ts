@@ -3,6 +3,7 @@ import type { CheerioAPI } from "cheerio";
 import type { ParsedJob } from "./feedParser";
 import { parseSalaryRange } from "./salary";
 import { WORK_TYPE_KEYWORDS, SENIORITY_KEYWORDS, CONTRACT_KEYWORDS, CATEGORY_KEYWORDS, matchFirst } from "./jobKeywords";
+import { inferCountry } from "./location";
 
 /**
  * Scraper genérico "melhor esforço" para páginas de busca/listagem de
@@ -204,6 +205,7 @@ export function scrapeListingHtml(html: string, pageUrl: string, defaultCity: st
       category,
       city,
       state,
+      country: inferCountry(state),
       salaryMin,
       salaryMax,
       sourceUrl: href,

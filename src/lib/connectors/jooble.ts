@@ -50,6 +50,7 @@ function toParsedJob(j: JoobleJob): ParsedJob {
     category: null,
     city: j.location || "Remoto",
     state: null,
+    country: null, // não verificado se a busca por location realmente restringe ao Brasil — ver aviso no topo do arquivo
     salaryMin: min,
     salaryMax: max,
     sourceUrl: j.link,

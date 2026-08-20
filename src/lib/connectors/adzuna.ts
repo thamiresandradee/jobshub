@@ -93,6 +93,7 @@ function toParsedJob(r: AdzunaResult): ParsedJob {
     category: r.category?.label && r.category.label !== "Unknown" ? r.category.label : null,
     city,
     state,
+    country: "Brasil", // busca sempre escopada ao Brasil (endpoint /jobs/br/search)
     salaryMin: toMonthly(r.salary_min),
     salaryMax: toMonthly(r.salary_max),
     sourceUrl: r.redirect_url,

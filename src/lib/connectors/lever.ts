@@ -1,6 +1,6 @@
 import type { ParsedJob } from "../feedParser";
 import { SENIORITY_KEYWORDS, matchFirst } from "../jobKeywords";
-import { splitLocation } from "../location";
+import { splitLocation, inferCountry } from "../location";
 
 /**
  * Conector para a API pública de postings da Lever
@@ -66,6 +66,7 @@ function toParsedJob(j: LeverPosting, fallbackCompany: string): ParsedJob {
     category: j.categories?.team ?? null,
     city,
     state,
+    country: inferCountry(state),
     salaryMin: null,
     salaryMax: null,
     sourceUrl: j.hostedUrl,

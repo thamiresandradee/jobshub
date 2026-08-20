@@ -66,6 +66,7 @@ export async function fetchRemotiveJobs(): Promise<{ jobs: ParsedJob[]; warnings
       category: j.category ?? null,
       city: "Remoto",
       state: null,
+      country: null, // remoto, país da empresa não importa pro filtro (vaga remota sempre passa)
       salaryMin: null,
       salaryMax: null,
       sourceUrl: j.url,

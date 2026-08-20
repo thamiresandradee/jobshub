@@ -132,10 +132,10 @@ export async function syncSource(sourceId: string): Promise<SyncResult> {
       await sql`
         insert into jobs (
           source_id, external_id, title, description, company, work_type, seniority,
-          contract_type, category, city, state, salary_min, salary_max, source_url, updated_at
+          contract_type, category, city, state, country, salary_min, salary_max, source_url, updated_at
         ) values (
           ${sourceId}, ${j.externalId}, ${j.title}, ${j.description}, ${j.company}, ${j.workType}, ${j.seniority},
-          ${j.contractType}, ${j.category}, ${normalizeCityName(j.city)}, ${j.state}, ${j.salaryMin}, ${j.salaryMax}, ${j.sourceUrl}, now()
+          ${j.contractType}, ${j.category}, ${normalizeCityName(j.city)}, ${j.state}, ${j.country}, ${j.salaryMin}, ${j.salaryMax}, ${j.sourceUrl}, now()
         )
         on conflict (source_id, external_id) do update set
           title = excluded.title,
@@ -147,6 +147,7 @@ export async function syncSource(sourceId: string): Promise<SyncResult> {
           category = excluded.category,
           city = excluded.city,
           state = excluded.state,
+          country = excluded.country,
           salary_min = excluded.salary_min,
           salary_max = excluded.salary_max,
           source_url = excluded.source_url,

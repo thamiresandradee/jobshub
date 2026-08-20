@@ -27,6 +27,7 @@ export type Job = {
   category: string | null;
   city: string;
   state: string | null;
+  country: string | null; // "Brasil" | país estrangeiro | null (desconhecido, tratado como Brasil)
   salary_min: number | null;
   salary_max: number | null;
   source_url: string | null;
@@ -39,6 +40,7 @@ export type Job = {
 
 export type JobFilters = {
   q?: string; // busca por texto no título da vaga
+  abroad?: boolean; // true = só vaga no exterior + remota; false/ausente (padrão) = só Brasil + remota
   city?: string[];
   workType?: string;
   seniority?: string;

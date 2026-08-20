@@ -88,6 +88,7 @@ function toParsedJob(j: GupyJob, slug: string, fallbackCompany: string): ParsedJ
     category: j.department || null,
     city,
     state: address?.stateShortName || null,
+    country: address?.country || null,
     salaryMin: null,
     salaryMax: null,
     sourceUrl: `https://${slug}.gupy.io/jobs/${j.id}?jobBoardSource=gupy_public_page`,

@@ -41,8 +41,18 @@ export function FiltersBar({
         </Field>
       </div>
 
-      <div className="mt-3 w-full">
-        <CityMultiSelect cities={meta.cities} selected={filters.city ?? []} onChange={(v) => onChange({ city: v.length ? v : undefined })} />
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-12">
+        <div className="sm:col-span-9">
+          <CityMultiSelect cities={meta.cities} selected={filters.city ?? []} onChange={(v) => onChange({ city: v.length ? v : undefined })} />
+        </div>
+        <div className="sm:col-span-3">
+          <Field label="Vagas no exterior" labelClassName="text-sm font-semibold text-slate-700">
+            <div className="flex h-[50px] items-center gap-1 rounded-lg border border-slate-300 p-1">
+              <AbroadButton active={!filters.abroad} onClick={() => onChange({ abroad: undefined, city: undefined })} label="Brasil" />
+              <AbroadButton active={!!filters.abroad} onClick={() => onChange({ abroad: true, city: undefined })} label="Exterior" />
+            </div>
+          </Field>
+        </div>
       </div>
 
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -97,6 +107,7 @@ export function FiltersBar({
           onClick={() =>
             onChange({
               q: undefined,
+              abroad: undefined,
               city: undefined,
               workType: undefined,
               seniority: undefined,
@@ -276,6 +287,18 @@ function ViewButton({ active, onClick, label }: { active: boolean; onClick: () =
       type="button"
       onClick={onClick}
       className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${active ? "bg-emerald-600 text-white" : "text-slate-500 hover:bg-slate-100"}`}
+    >
+      {label}
+    </button>
+  );
+}
+
+function AbroadButton({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex-1 rounded-md px-2 py-1.5 text-sm font-medium transition ${active ? "bg-emerald-600 text-white" : "text-slate-500 hover:bg-slate-100"}`}
     >
       {label}
     </button>

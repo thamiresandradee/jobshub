@@ -1,6 +1,6 @@
 import type { ParsedJob } from "../feedParser";
 import { WORK_TYPE_KEYWORDS, SENIORITY_KEYWORDS, matchFirst } from "../jobKeywords";
-import { splitLocation } from "../location";
+import { splitLocation, inferCountry } from "../location";
 
 /**
  * Conector para a API pública de board da Greenhouse
@@ -52,6 +52,7 @@ function toParsedJob(j: GreenhouseJob, fallbackCompany: string): ParsedJob {
     category: j.departments?.[0]?.name ?? null,
     city,
     state,
+    country: inferCountry(state),
     salaryMin: null,
     salaryMax: null,
     sourceUrl: j.absolute_url,

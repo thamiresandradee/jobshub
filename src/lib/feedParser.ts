@@ -40,6 +40,9 @@ export type ParsedJob = {
   category: string | null;
   city: string;
   state: string | null;
+  // "Brasil" | nome do país estrangeiro | null (desconhecido, tratado como
+  // Brasil no filtro de exterior — ver src/lib/cityFilter.ts).
+  country: string | null;
   salaryMin: number | null;
   salaryMax: number | null;
   sourceUrl: string | null;
@@ -63,6 +66,7 @@ const FIELD_ALIASES: Record<string, string[]> = {
   category: ["category", "categoria", "area", "área", "department", "departamento"],
   city: ["city", "cidade", "location", "localidade"],
   state: ["state", "uf", "estado"],
+  country: ["country", "pais", "país"],
   salaryMin: ["salarymin", "minsalary", "salariomin", "salariominimo", "basesalary", "paymin"],
   salaryMax: ["salarymax", "maxsalary", "salariomax", "salariomaximo", "paymax"],
   salary: ["salary", "salario", "salário", "salaryrange", "faixasalarial", "remuneracao", "remuneração"],
@@ -203,6 +207,7 @@ function parseListings(rawListings: Record<string, unknown>[]): FeedParseResult 
       category: pick(flat, FIELD_ALIASES.category) ?? null,
       city,
       state: pick(flat, FIELD_ALIASES.state) ?? null,
+      country: pick(flat, FIELD_ALIASES.country) ?? null,
       salaryMin,
       salaryMax,
       sourceUrl: pick(flat, FIELD_ALIASES.sourceUrl) ?? null,
