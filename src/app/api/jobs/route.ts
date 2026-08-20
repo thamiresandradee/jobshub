@@ -13,9 +13,18 @@ export async function GET(req: NextRequest) {
     .split(",")
     .map((c) => c.trim())
     .filter(Boolean);
-  const workType = q.get("workType")?.trim() || null;
-  const seniority = q.get("seniority")?.trim() || null;
-  const contractType = q.get("contractType")?.trim() || null;
+  const workTypes = (q.get("workType") ?? "")
+    .split(",")
+    .map((c) => c.trim())
+    .filter(Boolean);
+  const seniorities = (q.get("seniority") ?? "")
+    .split(",")
+    .map((c) => c.trim())
+    .filter(Boolean);
+  const contractTypes = (q.get("contractType") ?? "")
+    .split(",")
+    .map((c) => c.trim())
+    .filter(Boolean);
   const categories = (q.get("category") ?? "")
     .split(",")
     .map((c) => c.trim())
@@ -45,9 +54,9 @@ export async function GET(req: NextRequest) {
       : "(j.work_type = 'remoto' or j.country is null or lower(j.country) = 'brasil')"
   );
   if (cities.length) addCondition("j.city = any(?)", cities);
-  if (workType) addCondition("j.work_type = ?", workType);
-  if (seniority) addCondition("j.seniority = ?", seniority);
-  if (contractType) addCondition("j.contract_type = ?", contractType);
+  if (workTypes.length) addCondition("j.work_type = any(?)", workTypes);
+  if (seniorities.length) addCondition("j.seniority = any(?)", seniorities);
+  if (contractTypes.length) addCondition("j.contract_type = any(?)", contractTypes);
   if (categories.length) addCondition("j.category = any(?)", categories);
   if (sourceId) addCondition("j.source_id = ?", sourceId);
   if (minSalary) addCondition("j.salary_max >= ?", minSalary);

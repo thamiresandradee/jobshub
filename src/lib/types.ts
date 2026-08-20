@@ -42,9 +42,9 @@ export type JobFilters = {
   q?: string; // busca por texto no título da vaga
   abroad?: boolean; // true = só vaga no exterior + remota; false/ausente (padrão) = só Brasil + remota
   city?: string[];
-  workType?: string;
-  seniority?: string;
-  contractType?: string;
+  workType?: string[];
+  seniority?: string[];
+  contractType?: string[];
   category?: string[];
   minSalary?: number;
   maxSalary?: number;
