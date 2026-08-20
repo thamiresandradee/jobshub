@@ -18,8 +18,16 @@ function titleCase(raw: string): string {
 }
 
 export function normalizeCityName(raw: string): string {
-  const trimmed = raw.trim().replace(/`/g, "'");
+  let trimmed = raw.trim().replace(/`/g, "'");
   if (/^remoto$/i.test(trimmed)) return "Remoto";
+
+  // O filtro de múltiplas cidades (?city=A,B — ver FiltersBar.tsx e
+  // /api/jobs) usa vírgula como separador. Uma vírgula sobrevivendo aqui
+  // (ex.: conector que devolve "Cidade, Estado" sem ter sido separado antes)
+  // faria esse valor virar duas cidades erradas na hora de filtrar — troca
+  // por um traço pra nunca colidir com o separador.
+  trimmed = trimmed.replace(/,/g, " -").replace(/\s+/g, " ").trim();
+
   const alias = CITY_ALIASES[trimmed.toLowerCase()];
   return alias ?? titleCase(trimmed);
 }

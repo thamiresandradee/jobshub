@@ -1,5 +1,6 @@
 import type { ParsedJob } from "../feedParser";
 import { SENIORITY_KEYWORDS, matchFirst } from "../jobKeywords";
+import { splitLocation } from "../location";
 
 /**
  * Conector para a API pública de postings da Lever
@@ -43,8 +44,16 @@ async function fetchRaw(slug: string): Promise<LeverPosting[] | null> {
 }
 
 function toParsedJob(j: LeverPosting, fallbackCompany: string): ParsedJob {
-  const location = j.categories?.location ?? "";
+  // Vaga com múltiplas localizações elegíveis vem como uma string só
+  // separada por ";" (ex.: "Remote Ireland; Remote, France; Remote, Germany")
+  // — usamos só a primeira. Ela, por sua vez, costuma vir "Cidade, País" —
+  // separamos pra `city` nunca carregar vírgula (que colidiria com o
+  // separador de múltiplas cidades do filtro).
+  const rawLocation = (j.categories?.location ?? "").split(";")[0].trim();
   const commitment = (j.categories?.commitment ?? "").toLowerCase();
+  const { city, state } = rawLocation
+    ? splitLocation(rawLocation)
+    : { city: j.workplaceType === "remote" ? "Remoto" : fallbackCompany, state: null };
 
   return {
     externalId: j.id,
@@ -55,8 +64,8 @@ function toParsedJob(j: LeverPosting, fallbackCompany: string): ParsedJob {
     seniority: matchFirst(j.text, SENIORITY_KEYWORDS),
     contractType: COMMITMENT_TO_CONTRACT[commitment] ?? null,
     category: j.categories?.team ?? null,
-    city: location || (j.workplaceType === "remote" ? "Remoto" : fallbackCompany),
-    state: null,
+    city,
+    state,
     salaryMin: null,
     salaryMax: null,
     sourceUrl: j.hostedUrl,

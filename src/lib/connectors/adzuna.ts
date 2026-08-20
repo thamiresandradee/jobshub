@@ -35,7 +35,7 @@ type AdzunaResult = {
   id: string;
   title: string;
   company?: { display_name?: string };
-  location?: { display_name?: string };
+  location?: { display_name?: string; area?: string[] };
   salary_min?: number;
   salary_max?: number;
   contract_type?: string;
@@ -53,9 +53,25 @@ function toMonthly(annual: number | undefined): number | null {
   return Math.round(annual / 12);
 }
 
+/**
+ * `location.display_name` vem como "Cidade, Estado" — uma string só, com
+ * vírgula, que colidiria com o separador de múltiplas cidades do filtro
+ * (?city=A,B). `location.area` é mais confiável pra extrair só a cidade: é
+ * uma lista do mais genérico pro mais específico (ex.: ["Brasil", "Sudeste",
+ * "Estado de São Paulo", "Campinas"]) — o último item é a cidade, o
+ * penúltimo o estado/região, confirmado testando contra a API real.
+ */
+function cityAndState(location: AdzunaResult["location"]): { city: string; state: string | null } {
+  const area = location?.area;
+  if (area && area.length > 0) {
+    return { city: area[area.length - 1], state: area.length > 1 ? area[area.length - 2] : null };
+  }
+  return { city: location?.display_name ?? "Remoto", state: null };
+}
+
 function toParsedJob(r: AdzunaResult): ParsedJob {
-  const locationName = r.location?.display_name ?? "";
-  const text = `${locationName} ${r.title}`;
+  const { city, state } = cityAndState(r.location);
+  const text = `${r.location?.display_name ?? ""} ${r.title}`;
 
   return {
     externalId: r.id,
@@ -66,8 +82,8 @@ function toParsedJob(r: AdzunaResult): ParsedJob {
     seniority: matchFirst(r.title, SENIORITY_KEYWORDS),
     contractType: r.contract_type ? (CONTRACT_TYPE_MAP[r.contract_type] ?? null) : null,
     category: r.category?.label && r.category.label !== "Unknown" ? r.category.label : null,
-    city: locationName || "Remoto",
-    state: null,
+    city,
+    state,
     salaryMin: toMonthly(r.salary_min),
     salaryMax: toMonthly(r.salary_max),
     sourceUrl: r.redirect_url,

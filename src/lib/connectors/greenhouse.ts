@@ -1,5 +1,6 @@
 import type { ParsedJob } from "../feedParser";
 import { WORK_TYPE_KEYWORDS, SENIORITY_KEYWORDS, matchFirst } from "../jobKeywords";
+import { splitLocation } from "../location";
 
 /**
  * Conector para a API pública de board da Greenhouse
@@ -33,9 +34,12 @@ function toParsedJob(j: GreenhouseJob, fallbackCompany: string): ParsedJob {
   // Vaga com múltiplas localizações elegíveis vem como uma string só
   // separada por ";" (ex.: "Remote Ireland; Remote, Germany; Remote, Spain")
   // — usamos só a primeira pra não poluir o filtro de cidade com uma opção
-  // gigante e ilegível por vaga.
-  const locationName = (j.location?.name ?? "").split(";")[0].trim();
-  const text = `${locationName} ${j.title}`;
+  // gigante e ilegível por vaga. A primeira, por sua vez, costuma vir como
+  // "Cidade, Estado/País" — separamos pra `city` nunca carregar a vírgula
+  // (que colidiria com o separador de múltiplas cidades do filtro).
+  const rawLocation = (j.location?.name ?? "").split(";")[0].trim();
+  const { city, state } = rawLocation ? splitLocation(rawLocation) : { city: fallbackCompany, state: null };
+  const text = `${rawLocation} ${j.title}`;
 
   return {
     externalId: String(j.id),
@@ -46,8 +50,8 @@ function toParsedJob(j: GreenhouseJob, fallbackCompany: string): ParsedJob {
     seniority: matchFirst(j.title, SENIORITY_KEYWORDS),
     contractType: null,
     category: j.departments?.[0]?.name ?? null,
-    city: locationName || fallbackCompany,
-    state: null,
+    city,
+    state,
     salaryMin: null,
     salaryMax: null,
     sourceUrl: j.absolute_url,
