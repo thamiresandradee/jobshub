@@ -43,7 +43,15 @@ export function FiltersBar({
 
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-12">
         <div className="sm:col-span-9">
-          <CityMultiSelect cities={meta.cities} selected={filters.city ?? []} onChange={(v) => onChange({ city: v.length ? v : undefined })} />
+          <MultiSelect
+            label="Cidade"
+            emptyText="Todas"
+            noOptionsText="Nenhuma cidade ainda"
+            countNoun="cidades"
+            options={meta.cities}
+            selected={filters.city ?? []}
+            onChange={(v) => onChange({ city: v.length ? v : undefined })}
+          />
         </div>
         <div className="sm:col-span-3">
           <Field label="Vagas no exterior" labelClassName="text-sm font-semibold text-slate-700">
@@ -84,14 +92,15 @@ export function FiltersBar({
 
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-12">
         <div className="sm:col-span-6">
-          <Select label="Área" value={filters.category ?? ""} onChange={(v) => onChange({ category: v || undefined })}>
-            <option value="">Todas</option>
-            {meta.categories.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </Select>
+          <MultiSelect
+            label="Área"
+            emptyText="Todas"
+            noOptionsText="Nenhuma área ainda"
+            countNoun="áreas"
+            options={meta.categories}
+            selected={filters.category ?? []}
+            onChange={(v) => onChange({ category: v.length ? v : undefined })}
+          />
         </div>
         <div className="sm:col-span-3">
           <PriceInput label="Salário mín." value={filters.minSalary} onChange={(v) => onChange({ minSalary: v })} />
@@ -167,8 +176,24 @@ function Select({
   );
 }
 
-/** Dropdown com checkboxes — permite escolher uma ou várias cidades. */
-function CityMultiSelect({ cities, selected, onChange }: { cities: string[]; selected: string[]; onChange: (v: string[]) => void }) {
+/** Dropdown com checkboxes — permite escolher uma ou várias opções (cidade, área...). */
+function MultiSelect({
+  label,
+  emptyText,
+  noOptionsText,
+  countNoun,
+  options,
+  selected,
+  onChange,
+}: {
+  label: string;
+  emptyText: string;
+  noOptionsText: string;
+  countNoun: string;
+  options: string[];
+  selected: string[];
+  onChange: (v: string[]) => void;
+}) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const selectAllRef = useRef<HTMLInputElement>(null);
@@ -183,41 +208,41 @@ function CityMultiSelect({ cities, selected, onChange }: { cities: string[]; sel
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const allSelected = cities.length > 0 && selected.length === cities.length;
+  const allSelected = options.length > 0 && selected.length === options.length;
   const someSelected = selected.length > 0 && !allSelected;
 
   useEffect(() => {
     if (selectAllRef.current) selectAllRef.current.indeterminate = someSelected;
   }, [someSelected]);
 
-  function toggleCity(city: string) {
-    onChange(selected.includes(city) ? selected.filter((c) => c !== city) : [...selected, city]);
+  function toggleOption(option: string) {
+    onChange(selected.includes(option) ? selected.filter((c) => c !== option) : [...selected, option]);
   }
 
   // Marca todas de uma vez (pra depois ir desmarcando só as que não quer),
   // ou desmarca tudo se já estiverem todas marcadas.
   function toggleAll() {
-    onChange(allSelected ? [] : [...cities]);
+    onChange(allSelected ? [] : [...options]);
   }
 
-  const label = selected.length === 0 ? "Todas" : selected.length === 1 ? selected[0] : `${selected.length} cidades`;
+  const buttonLabel = selected.length === 0 ? emptyText : selected.length === 1 ? selected[0] : `${selected.length} ${countNoun}`;
 
   return (
-    <Field label="Cidade" labelClassName="text-sm font-semibold text-slate-700">
+    <Field label={label} labelClassName="text-sm font-semibold text-slate-700">
       <div ref={containerRef} className="relative w-full">
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
           className="flex w-full items-center justify-between gap-1 rounded-lg border border-slate-300 bg-white px-4 py-3 text-base focus:border-emerald-500 focus:outline-none"
         >
-          <span className="truncate">{label}</span>
+          <span className="truncate">{buttonLabel}</span>
           <ChevronDown size={18} className={`shrink-0 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
         </button>
 
         {open && (
           <div className="absolute z-30 mt-1 max-h-96 w-full min-w-40 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
-            {cities.length === 0 ? (
-              <p className="px-2 py-1.5 text-sm text-slate-400">Nenhuma cidade ainda</p>
+            {options.length === 0 ? (
+              <p className="px-2 py-1.5 text-sm text-slate-400">{noOptionsText}</p>
             ) : (
               <>
                 <label className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
@@ -233,16 +258,16 @@ function CityMultiSelect({ cities, selected, onChange }: { cities: string[]; sel
                 <div className="my-1 border-t border-slate-100" />
               </>
             )}
-            {cities.length > 0 &&
-              cities.map((city) => (
-                <label key={city} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-slate-50">
+            {options.length > 0 &&
+              options.map((option) => (
+                <label key={option} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-slate-50">
                   <input
                     type="checkbox"
-                    checked={selected.includes(city)}
-                    onChange={() => toggleCity(city)}
+                    checked={selected.includes(option)}
+                    onChange={() => toggleOption(option)}
                     className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
                   />
-                  {city}
+                  {option}
                 </label>
               ))}
           </div>

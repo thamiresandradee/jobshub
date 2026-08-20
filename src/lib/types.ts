@@ -45,7 +45,7 @@ export type JobFilters = {
   workType?: string;
   seniority?: string;
   contractType?: string;
-  category?: string;
+  category?: string[];
   minSalary?: number;
   maxSalary?: number;
   sourceId?: string;

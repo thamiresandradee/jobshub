@@ -75,7 +75,7 @@ export default function HomePage() {
     if (debouncedFilters.workType) params.set("workType", debouncedFilters.workType);
     if (debouncedFilters.seniority) params.set("seniority", debouncedFilters.seniority);
     if (debouncedFilters.contractType) params.set("contractType", debouncedFilters.contractType);
-    if (debouncedFilters.category) params.set("category", debouncedFilters.category);
+    if (debouncedFilters.category?.length) params.set("category", debouncedFilters.category.join(","));
     if (debouncedFilters.minSalary) params.set("minSalary", String(debouncedFilters.minSalary));
     if (debouncedFilters.maxSalary) params.set("maxSalary", String(debouncedFilters.maxSalary));
     params.set("page", String(page));

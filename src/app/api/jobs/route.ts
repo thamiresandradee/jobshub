@@ -16,7 +16,10 @@ export async function GET(req: NextRequest) {
   const workType = q.get("workType")?.trim() || null;
   const seniority = q.get("seniority")?.trim() || null;
   const contractType = q.get("contractType")?.trim() || null;
-  const category = q.get("category")?.trim() || null;
+  const categories = (q.get("category") ?? "")
+    .split(",")
+    .map((c) => c.trim())
+    .filter(Boolean);
   const sourceId = q.get("sourceId")?.trim() || null;
   const minSalary = q.get("minSalary") ? Number(q.get("minSalary")) : null;
   const maxSalary = q.get("maxSalary") ? Number(q.get("maxSalary")) : null;
@@ -45,7 +48,7 @@ export async function GET(req: NextRequest) {
   if (workType) addCondition("j.work_type = ?", workType);
   if (seniority) addCondition("j.seniority = ?", seniority);
   if (contractType) addCondition("j.contract_type = ?", contractType);
-  if (category) addCondition("j.category = ?", category);
+  if (categories.length) addCondition("j.category = any(?)", categories);
   if (sourceId) addCondition("j.source_id = ?", sourceId);
   if (minSalary) addCondition("j.salary_max >= ?", minSalary);
   if (maxSalary) addCondition("j.salary_min <= ?", maxSalary);
