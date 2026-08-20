@@ -42,7 +42,7 @@ function toParsedJob(r: AdzunaResult): ParsedJob {
     workType: matchFirst(text, WORK_TYPE_KEYWORDS),
     seniority: matchFirst(r.title, SENIORITY_KEYWORDS),
     contractType: r.contract_type ? (CONTRACT_TYPE_MAP[r.contract_type] ?? null) : null,
-    category: r.category?.label ?? null,
+    category: r.category?.label && r.category.label !== "Unknown" ? r.category.label : null,
     city: locationName || "Remoto",
     state: null,
     salaryMin: r.salary_min ?? null,
