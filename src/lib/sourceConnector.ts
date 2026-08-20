@@ -1,4 +1,4 @@
-export const KNOWN_CONNECTORS = new Set(["remotive", "greenhouse", "lever", "adzuna"]);
+export const KNOWN_CONNECTORS = new Set(["remotive", "greenhouse", "lever", "gupy", "adzuna", "jooble"]);
 
 export type ConnectorResolution =
   | { ok: true; connector: string | null; connectorConfig: string | null; sourceUrl: string }
@@ -27,8 +27,17 @@ export function resolveConnectorFields(input: { connector: string | null; connec
     return { ok: true, connector, connectorConfig, sourceUrl: `https://jobs.lever.co/${connectorConfig}` };
   }
 
+  if (connector === "gupy") {
+    if (!connectorConfig) return { ok: false, error: "Informe o slug da empresa na Gupy (o subdomínio, ex.: \"ambev\" para ambev.gupy.io)." };
+    return { ok: true, connector, connectorConfig, sourceUrl: `https://${connectorConfig}.gupy.io/` };
+  }
+
   if (connector === "adzuna") {
     return { ok: true, connector, connectorConfig: connectorConfig || null, sourceUrl: "https://www.adzuna.com.br/" };
+  }
+
+  if (connector === "jooble") {
+    return { ok: true, connector, connectorConfig: connectorConfig || null, sourceUrl: "https://jooble.org/" };
   }
 
   if (!genericSourceUrl) {

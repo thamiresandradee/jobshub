@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAdminRequest } from "@/lib/adminAuth";
 import { probeGreenhouse } from "@/lib/connectors/greenhouse";
 import { probeLever } from "@/lib/connectors/lever";
+import { probeGupy } from "@/lib/connectors/gupy";
 
 /**
- * Tenta achar automaticamente a API pública de vagas de uma empresa nas ATS
- * mais comuns (Greenhouse, Lever), a partir só do nome dela — resolve o caso
- * "eu sei o nome da empresa, mas não sei o link do board de vagas". Gera
- * alguns slugs candidatos (variações de como o nome costuma virar URL) e
- * testa cada um contra as duas APIs em paralelo.
+ * Tenta achar automaticamente a API/página pública de vagas de uma empresa
+ * nas plataformas mais comuns (Gupy — a mais usada no Brasil —, Greenhouse
+ * e Lever), a partir só do nome dela — resolve o caso "eu sei o nome da
+ * empresa, mas não sei o link do board de vagas". Gera alguns slugs
+ * candidatos (variações de como o nome costuma virar URL) e testa cada um
+ * contra as três em paralelo.
  */
 
 function slugCandidates(name: string): string[] {
@@ -44,6 +46,7 @@ export async function POST(req: NextRequest) {
   }
 
   const attempts = candidates.flatMap((slug) => [
+    probeGupy(slug).then((r) => ({ connector: "gupy", slug, ...r })),
     probeGreenhouse(slug).then((r) => ({ connector: "greenhouse", slug, ...r })),
     probeLever(slug).then((r) => ({ connector: "lever", slug, ...r })),
   ]);

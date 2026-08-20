@@ -15,8 +15,10 @@ function formatDate(iso: string | null) {
 
 const emptyForm = { name: "", city: "", source_url: "", site_url: "" };
 
-type SourceType = "generic" | "remotive" | "adzuna" | "ats";
-type AtsMatch = { connector: "greenhouse" | "lever"; slug: string; count: number; sampleTitles: string[] };
+type SourceType = "generic" | "remotive" | "adzuna" | "jooble" | "ats";
+type AtsMatch = { connector: "gupy" | "greenhouse" | "lever"; slug: string; count: number; sampleTitles: string[] };
+
+const ATS_LABELS: Record<AtsMatch["connector"], string> = { gupy: "Gupy", greenhouse: "Greenhouse", lever: "Lever" };
 
 export default function FontesPage() {
   const adminKey = useAdminKey();
@@ -33,6 +35,7 @@ export default function FontesPage() {
 
   const [sourceType, setSourceType] = useState<SourceType>("generic");
   const [adzunaWhat, setAdzunaWhat] = useState("");
+  const [joobleKeywords, setJoobleKeywords] = useState("");
   const [companyQuery, setCompanyQuery] = useState("");
   const [discovering, setDiscovering] = useState(false);
   const [discoverMatches, setDiscoverMatches] = useState<AtsMatch[] | null>(null);
@@ -40,6 +43,7 @@ export default function FontesPage() {
 
   function resetSourceTypeFields() {
     setAdzunaWhat("");
+    setJoobleKeywords("");
     setCompanyQuery("");
     setDiscoverMatches(null);
     setSelectedMatch(null);
@@ -116,7 +120,10 @@ export default function FontesPage() {
     if (source.connector === "adzuna") {
       setSourceType("adzuna");
       setAdzunaWhat(source.connector_config ?? "");
-    } else if (source.connector === "greenhouse" || source.connector === "lever") {
+    } else if (source.connector === "jooble") {
+      setSourceType("jooble");
+      setJoobleKeywords(source.connector_config ?? "");
+    } else if (source.connector === "gupy" || source.connector === "greenhouse" || source.connector === "lever") {
       setSourceType("ats");
       setSelectedMatch({ connector: source.connector, slug: source.connector_config ?? "", count: 0, sampleTitles: [] });
     } else if (source.connector === "remotive") {
@@ -140,6 +147,9 @@ export default function FontesPage() {
     }
     if (sourceType === "adzuna") {
       return { name: form.name, city: form.city, connector: "adzuna", connector_config: adzunaWhat };
+    }
+    if (sourceType === "jooble") {
+      return { name: form.name, city: form.city, connector: "jooble", connector_config: joobleKeywords };
     }
     if (sourceType === "ats") {
       if (!selectedMatch || !selectedMatch.slug) return null;
@@ -255,9 +265,10 @@ export default function FontesPage() {
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Fontes de vagas</h1>
         <p className="text-sm text-slate-500">
-          Cadastre de onde tirar as vagas: uma integração pronta (Remotive, Adzuna, ou detectando a empresa automaticamente
-          na Greenhouse/Lever), ou uma URL genérica (feed estruturado ou página de listagem) quando você já souber o link.
-          Sincronizamos automaticamente 1x por dia — ou clique em &quot;Sincronizar agora&quot; quando quiser.
+          Cadastre de onde tirar as vagas: uma integração pronta (Remotive, Adzuna, Jooble, ou detectando a empresa
+          automaticamente na Gupy/Greenhouse/Lever), ou uma URL genérica (feed estruturado ou página de listagem) quando
+          você já souber o link. Sincronizamos automaticamente 1x por dia — ou clique em &quot;Sincronizar agora&quot;
+          quando quiser.
         </p>
       </div>
 
@@ -266,6 +277,7 @@ export default function FontesPage() {
           <SourceTypeTab active={sourceType === "generic"} onClick={() => setSourceType("generic")} label="URL genérica" />
           <SourceTypeTab active={sourceType === "remotive"} onClick={() => setSourceType("remotive")} label="Remotive" />
           <SourceTypeTab active={sourceType === "adzuna"} onClick={() => setSourceType("adzuna")} label="Adzuna" />
+          <SourceTypeTab active={sourceType === "jooble"} onClick={() => setSourceType("jooble")} label="Jooble" />
           <SourceTypeTab active={sourceType === "ats"} onClick={() => setSourceType("ats")} label="Empresa (detectar automaticamente)" />
         </div>
       )}
@@ -326,6 +338,21 @@ export default function FontesPage() {
           </div>
         )}
 
+        {sourceType === "jooble" && (
+          <div className="flex flex-col gap-3">
+            <p className="text-sm text-slate-500">
+              Outro agregador amplo com cobertura no Brasil, via API da Jooble. Precisa de{" "}
+              <code className="rounded bg-slate-100 px-1 py-0.5">JOOBLE_API_KEY</code> configurada no servidor (peça uma
+              chave gratuita em jooble.org/api/about — diferente da Adzuna, não é instantânea).
+            </p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <Input label="Nome da fonte" required value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} placeholder="Jooble - Campinas" />
+              <Input label="Cidade (location)" required value={form.city} onChange={(v) => setForm((f) => ({ ...f, city: v }))} placeholder="Campinas" />
+              <Input label="Palavras-chave" value={joobleKeywords} onChange={setJoobleKeywords} placeholder="desenvolvedor" />
+            </div>
+          </div>
+        )}
+
         {sourceType === "ats" && (
           <div className="flex flex-col gap-3">
             {editingId ? (
@@ -334,9 +361,10 @@ export default function FontesPage() {
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <SelectField
                     label="Plataforma"
-                    value={selectedMatch?.connector ?? "greenhouse"}
+                    value={selectedMatch?.connector ?? "gupy"}
                     onChange={(v) => setSelectedMatch((m) => ({ connector: v as AtsMatch["connector"], slug: m?.slug ?? "", count: 0, sampleTitles: [] }))}
                   >
+                    <option value="gupy">Gupy</option>
                     <option value="greenhouse">Greenhouse</option>
                     <option value="lever">Lever</option>
                   </SelectField>
@@ -344,16 +372,16 @@ export default function FontesPage() {
                     label="Slug da empresa"
                     required
                     value={selectedMatch?.slug ?? ""}
-                    onChange={(v) => setSelectedMatch((m) => ({ connector: m?.connector ?? "greenhouse", slug: v, count: 0, sampleTitles: [] }))}
-                    placeholder="ex.: gitlab"
+                    onChange={(v) => setSelectedMatch((m) => ({ connector: m?.connector ?? "gupy", slug: v, count: 0, sampleTitles: [] }))}
+                    placeholder="ex.: ambev"
                   />
                 </div>
               </>
             ) : (
               <>
                 <p className="text-sm text-slate-500">
-                  Digite o nome da empresa — o sistema tenta achar sozinho a API pública de vagas dela na Greenhouse ou na
-                  Lever (as duas plataformas de recrutamento mais comuns que expõem isso).
+                  Digite o nome da empresa — o sistema tenta achar sozinho a API/página pública de vagas dela na Gupy (a
+                  mais usada no Brasil), Greenhouse ou Lever.
                 </p>
                 <div className="flex flex-wrap items-end gap-3">
                   <div className="min-w-48 flex-1">
@@ -398,7 +426,7 @@ export default function FontesPage() {
                           />
                           <span>
                             <span className="font-medium text-slate-800">
-                              {m.connector === "greenhouse" ? "Greenhouse" : "Lever"} · {m.slug} · {m.count} vaga(s)
+                              {ATS_LABELS[m.connector]} · {m.slug} · {m.count} vaga(s)
                             </span>
                             {m.sampleTitles.length > 0 && <span className="block text-slate-500">{m.sampleTitles.join(" · ")}</span>}
                           </span>

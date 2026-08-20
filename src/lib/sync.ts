@@ -5,7 +5,9 @@ import { normalizeCityName } from "./cityName";
 import { fetchRemotiveJobs } from "./connectors/remotive";
 import { fetchGreenhouseJobs } from "./connectors/greenhouse";
 import { fetchLeverJobs } from "./connectors/lever";
+import { fetchGupyJobs } from "./connectors/gupy";
 import { fetchAdzunaJobs } from "./connectors/adzuna";
+import { fetchJoobleJobs } from "./connectors/jooble";
 import type { JobSource } from "./types";
 
 export type SyncResult =
@@ -26,8 +28,12 @@ async function fetchViaConnector(source: JobSource): Promise<{ jobs: ParsedJob[]
       return fetchGreenhouseJobs(source.connector_config ?? "", source.name);
     case "lever":
       return fetchLeverJobs(source.connector_config ?? "", source.name);
+    case "gupy":
+      return fetchGupyJobs(source.connector_config ?? "", source.name);
     case "adzuna":
       return fetchAdzunaJobs(source.connector_config ?? "", source.city);
+    case "jooble":
+      return fetchJoobleJobs(source.connector_config ?? "", source.city);
     default:
       throw new Error(`Conector desconhecido: ${source.connector}`);
   }
