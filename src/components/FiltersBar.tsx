@@ -35,7 +35,7 @@ export function FiltersBar({
               value={filters.q ?? ""}
               onChange={(e) => onChange({ q: e.target.value || undefined })}
               placeholder="Ex.: desenvolvedor, analista de dados, designer..."
-              className="w-full rounded-lg border border-slate-300 bg-white py-3 pl-10 pr-4 text-base focus:border-emerald-500 focus:outline-none"
+              className="h-11 w-full rounded-lg border border-slate-300 bg-white pl-10 pr-4 text-base focus:border-emerald-500 focus:outline-none"
             />
           </div>
         </Field>
@@ -55,7 +55,7 @@ export function FiltersBar({
         </div>
         <div className="sm:col-span-3">
           <Field label="Vagas no exterior" labelClassName="text-sm font-semibold text-slate-700">
-            <div className="flex h-[50px] items-center gap-1 rounded-lg border border-slate-300 p-1">
+            <div className="flex h-11 items-center gap-1 rounded-lg border border-slate-300 p-1">
               <AbroadButton active={!filters.abroad} onClick={() => onChange({ abroad: undefined, city: undefined })} label="Brasil" />
               <AbroadButton active={!!filters.abroad} onClick={() => onChange({ abroad: true, city: undefined })} label="Exterior" />
             </div>
@@ -168,7 +168,7 @@ function Select({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+        className="h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm focus:border-emerald-500 focus:outline-none"
       >
         {children}
       </select>
@@ -233,7 +233,7 @@ function MultiSelect({
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
-          className="flex w-full items-center justify-between gap-1 rounded-lg border border-slate-300 bg-white px-4 py-3 text-base focus:border-emerald-500 focus:outline-none"
+          className="flex h-11 w-full items-center justify-between gap-1 rounded-lg border border-slate-300 bg-white px-4 text-base focus:border-emerald-500 focus:outline-none"
         >
           <span className="truncate">{buttonLabel}</span>
           <ChevronDown size={18} className={`shrink-0 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
@@ -300,7 +300,7 @@ function PriceInput({ label, value, onChange }: { label: string; value: number |
           setText(e.target.value);
           onChange(parseBRNumber(e.target.value) ?? undefined);
         }}
-        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+        className="h-11 w-full rounded-lg border border-slate-300 px-3 text-sm focus:border-emerald-500 focus:outline-none"
       />
     </Field>
   );
